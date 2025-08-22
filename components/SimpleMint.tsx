@@ -15,7 +15,7 @@ interface SimpleMintProps {
 
 export function SimpleMint({ locale = "en" }: SimpleMintProps) {
   const account = useActiveAccount();
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0);
   const [mintPrice, setMintPrice] = useState<string>("0");
   const [loading, setLoading] = useState(true);
   const [minting, setMinting] = useState(false);
@@ -60,11 +60,9 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
         setIsAllowlisted(data.isAllowlisted);
         setMaxMintAmount(data.maxMintAmount || 1);
         
-        // 数量を最大MINT数以下に制限（最小1）
+        // 数量を最大MINT数以下に制限
         if (quantity > data.maxMintAmount) {
           setQuantity(data.maxMintAmount);
-        } else if (quantity === 0) {
-          setQuantity(1);
         }
       } catch (error) {
         console.error("Error checking allowlist:", error);
@@ -127,7 +125,7 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
   }, [tokenId, configuredMintPrice]);
 
   const handleMint = async () => {
-    if (!account || !contractAddress) return;
+    if (!account || !contractAddress || quantity === 0) return;
 
     setMinting(true);
     setMintError(null);
@@ -398,12 +396,12 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
               <button
                 type="button"
                 onClick={() => {
-                  if (quantity > 1) {
+                  if (quantity > 0) {
                     setQuantity(quantity - 1);
                   }
                 }}
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
-                  quantity <= 1 
+                  quantity <= 0 
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
                 }`}
