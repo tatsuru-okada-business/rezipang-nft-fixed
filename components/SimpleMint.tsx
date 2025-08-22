@@ -146,8 +146,8 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
           address: paymentTokenAddress,
         });
 
-        // 合計支払い額を計算
-        const totalPayment = toWei((Number(mintPrice) * quantity).toString());
+        // 合計支払い額を計算（ZENYは0桁の小数）
+        const totalPayment = BigInt(Math.floor(Number(mintPrice) * quantity));
 
         // まずZENYトークンのapprove
         try {
@@ -396,8 +396,11 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
               <button
                 type="button"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-10 h-10 rounded-full bg-purple-100 hover:bg-purple-200 transition-colors flex items-center justify-center text-purple-700 font-bold"
-                disabled={quantity <= 1}
+                className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
+                  quantity <= 1 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
+                }`}
               >
                 -
               </button>
@@ -405,8 +408,11 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
               <button
                 type="button"
                 onClick={() => setQuantity(Math.min(maxMintAmount, quantity + 1))}
-                className="w-10 h-10 rounded-full bg-purple-100 hover:bg-purple-200 transition-colors flex items-center justify-center text-purple-700 font-bold"
-                disabled={quantity >= maxMintAmount}
+                className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
+                  quantity >= maxMintAmount 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
+                }`}
               >
                 +
               </button>
