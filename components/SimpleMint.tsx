@@ -151,12 +151,14 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
 
         // まずZENYトークンのapprove
         try {
+          // approve関数でトランザクションを準備
           const approveTx = approve({
             contract: paymentToken,
             spender: contractAddress,
-            amount: totalPayment.toString(),
+            amount: totalPayment,
           });
 
+          // トランザクションを送信（コールバックベース）
           sendTransaction(approveTx, {
             onSuccess: () => {
               console.log("ZENY approval successful, proceeding to mint...");
@@ -166,12 +168,12 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
             onError: (error) => {
               console.error("ZENY approval failed:", error);
               setMintError(locale === "ja" 
-                ? `ZENY承認失敗: ${error.message}` 
-                : `ZENY approval failed: ${error.message}`);
+                ? `ZENY承認失敗: ${error.message || "トランザクションが拒否されました"}` 
+                : `ZENY approval failed: ${error.message || "Transaction rejected"}`);
               setMinting(false);
             },
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error preparing ZENY approval:", error);
           setMintError(locale === "ja" 
             ? "ZENY承認の準備に失敗しました" 
