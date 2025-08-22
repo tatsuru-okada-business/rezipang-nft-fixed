@@ -407,12 +407,17 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
               <span className="w-12 text-center text-xl font-bold text-gray-900">{quantity}</span>
               <button
                 type="button"
-                onClick={() => setQuantity(Math.min(maxMintAmount, quantity + 1))}
+                onClick={() => {
+                  if (quantity < maxMintAmount) {
+                    setQuantity(quantity + 1);
+                  }
+                }}
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
                   quantity >= maxMintAmount 
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
                 }`}
+                disabled={quantity >= maxMintAmount}
               >
                 +
               </button>
