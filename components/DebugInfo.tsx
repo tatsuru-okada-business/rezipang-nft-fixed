@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
+import { getPaymentInfo } from "@/lib/projectConfig";
 
 export function DebugInfo({ locale = "en" }: { locale?: string }) {
   const account = useActiveAccount();
@@ -9,6 +10,9 @@ export function DebugInfo({ locale = "en" }: { locale?: string }) {
   const [copied, setCopied] = useState(false);
 
   const collectDebugInfo = () => {
+    const paymentInfo = getPaymentInfo();
+    const win = window as any;
+    
     const info = {
       timestamp: new Date().toISOString(),
       url: window.location.href,
@@ -17,11 +21,16 @@ export function DebugInfo({ locale = "en" }: { locale?: string }) {
       network: {
         chainId: process.env.NEXT_PUBLIC_CHAIN_ID,
         contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
-        paymentToken: process.env.NEXT_PUBLIC_PAYMENT_TOKEN_ADDRESS,
+      },
+      payment: {
+        useCustomToken: paymentInfo?.useCustomToken || false,
+        tokenAddress: paymentInfo?.address || "Not configured",
+        tokenSymbol: paymentInfo?.symbol || "Not configured",
+        price: paymentInfo?.price || "Not configured",
       },
       metamask: {
-        installed: typeof window !== "undefined" && window.ethereum !== undefined,
-        isMetaMask: window.ethereum?.isMetaMask || false,
+        installed: typeof window !== "undefined" && win.ethereum !== undefined,
+        isMetaMask: win.ethereum?.isMetaMask || false,
       },
       console: "ブラウザのコンソールログを確認してください",
     };
@@ -61,7 +70,7 @@ export function DebugInfo({ locale = "en" }: { locale?: string }) {
               {copied ? "✓ Copied" : "Copy"}
             </button>
           </div>
-          <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto">
+          <pre className="text-sm bg-gray-900 text-green-400 p-3 rounded overflow-auto font-mono">
             {debugData}
           </pre>
           <div className="mt-2 text-xs text-red-600">
