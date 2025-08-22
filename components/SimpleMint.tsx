@@ -412,22 +412,22 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
               <button
                 type="button"
                 onClick={() => {
-                  if (quantity < maxMintAmount) {
+                  if (isAllowlisted && quantity < maxMintAmount) {
                     setQuantity(quantity + 1);
                   }
                 }}
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
-                  quantity >= maxMintAmount 
+                  !isAllowlisted || quantity >= maxMintAmount 
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
                 }`}
-                disabled={quantity >= maxMintAmount}
+                disabled={!isAllowlisted || quantity >= maxMintAmount}
               >
                 +
               </button>
             </div>
           </div>
-          {maxMintAmount > 1 && (
+          {isAllowlisted && maxMintAmount >= 1 && (
             <p className="text-xs text-gray-600 text-center mt-2">
               {locale === "ja" 
                 ? `最大${maxMintAmount}枚までミント可能` 
