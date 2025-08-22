@@ -23,12 +23,44 @@ const CONFIG = {
   }
 };
 
-// テストするウォレットアドレス（allowlist.csvから取得）
-const TEST_WALLETS = [
-  '0x3f64bD02365F47eeC24c82CE5829eeb9489E8665', // アローリスト登録済み（2枚）
-  '0x72182aF98F83d3b97A727a95B8E7EA94b424107B', // アローリスト登録済み（1枚）
-  '0x0000000000000000000000000000000000000000', // 未登録
-];
+// allowlist.csvからアドレスを自動取得
+function loadTestWallets() {
+  const csvPath = path.join(__dirname, '..', 'allowlist.csv');
+  const wallets = [];
+  
+  try {
+    const csvContent = fs.readFileSync(csvPath, 'utf8');
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    
+    // ヘッダー行をスキップして、最初の2つのアドレスを取得
+    for (let i = 1; i < Math.min(3, lines.length); i++) {
+      const [address, maxMintAmount] = lines[i].split(',');
+      if (address && address.startsWith('0x')) {
+        wallets.push({
+          address: address.trim(),
+          maxMintAmount: parseInt(maxMintAmount) || 1,
+          status: 'アローリスト登録済み'
+        });
+      }
+    }
+    
+    // 未登録アドレスをサンプルとして追加
+    wallets.push({
+      address: '0x0000000000000000000000000000000000000000',
+      maxMintAmount: 0,
+      status: '未登録'
+    });
+    
+  } catch (error) {
+    log('  ⚠️  allowlist.csv の読み込みに失敗しました', 'red');
+    console.error(error);
+  }
+  
+  return wallets;
+}
+
+// テストするウォレットアドレス
+const TEST_WALLETS = loadTestWallets();
 
 // 色付きコンソール出力
 const colors = {
@@ -82,8 +114,9 @@ async function testAPI(baseUrl, endpoint, method = 'GET', body = null) {
 }
 
 // アローリストチェック
-async function checkAllowlist(baseUrl, address) {
-  log(`\n  アドレス: ${address}`, 'cyan');
+async function checkAllowlist(baseUrl, walletInfo) {
+  const { address, maxMintAmount: expectedMax, status } = walletInfo;
+  log(`\n  アドレス: ${address} (${status})`, 'cyan');
   
   try {
     const result = await testAPI(baseUrl, '/api/verify-allowlist', 'POST', { address });
@@ -91,7 +124,8 @@ async function checkAllowlist(baseUrl, address) {
     if (result.status === 200) {
       const { isAllowlisted, maxMintAmount } = result.data;
       if (isAllowlisted) {
-        log(`    ✅ アローリスト登録済み（最大${maxMintAmount}枚）`, 'green');
+        const match = maxMintAmount === expectedMax ? '✅' : '⚠️';
+        log(`    ${match} アローリスト登録済み（最大${maxMintAmount}枚）期待値: ${expectedMax}枚`, 'green');
       } else {
         log(`    ❌ アローリスト未登録`, 'yellow');
       }
@@ -208,8 +242,8 @@ async function runTests() {
       
       // アローリストチェック
       log('\n👥 アローリスト確認', 'bright');
-      for (const address of TEST_WALLETS) {
-        await checkAllowlist(testUrl, address);
+      for (const walletInfo of TEST_WALLETS) {
+        await checkAllowlist(testUrl, walletInfo);
       }
       
     } catch (error) {
