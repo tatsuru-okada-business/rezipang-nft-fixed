@@ -60,9 +60,11 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
         setIsAllowlisted(data.isAllowlisted);
         setMaxMintAmount(data.maxMintAmount || 1);
         
-        // 数量を最大MINT数以下に制限
+        // 数量を最大MINT数以下に制限（最小1）
         if (quantity > data.maxMintAmount) {
           setQuantity(data.maxMintAmount);
+        } else if (quantity === 0) {
+          setQuantity(1);
         }
       } catch (error) {
         console.error("Error checking allowlist:", error);
@@ -395,7 +397,11 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                onClick={() => {
+                  if (quantity > 1) {
+                    setQuantity(quantity - 1);
+                  }
+                }}
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
                   quantity <= 1 
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
@@ -457,9 +463,9 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
         <button
           type="button"
           onClick={handleMint}
-          disabled={minting || (isAllowlisted === false)}
+          disabled={minting || (isAllowlisted === false) || quantity < 1}
           className={`w-full py-4 rounded-xl font-extrabold text-lg transition-all transform ${
-            minting || (isAllowlisted === false)
+            minting || (isAllowlisted === false) || quantity < 1
               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
               : "bg-purple-600 text-white hover:bg-purple-700 hover:scale-[1.02] shadow-lg hover:shadow-xl border-2 border-purple-700"
           }`}
