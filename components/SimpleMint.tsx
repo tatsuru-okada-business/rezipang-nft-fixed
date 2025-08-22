@@ -113,8 +113,37 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
           }
         }
 
-        // 設定された価格を使用
-        setMintPrice(configuredMintPrice);
+        // クレーム条件を取得して確認
+        try {
+          const claimCondition = await readContract({
+            contract,
+            method: "function claimCondition(uint256) view returns (uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata)",
+            params: [BigInt(tokenId)],
+          });
+          
+          console.log("🔍 Current Claim Condition:", {
+            tokenId,
+            pricePerToken: claimCondition[5]?.toString(),
+            currency: claimCondition[6],
+            quantityLimitPerWallet: claimCondition[3]?.toString(),
+            maxClaimableSupply: claimCondition[1]?.toString(),
+            supplyClaimed: claimCondition[2]?.toString(),
+          });
+
+          // コントラクトから取得した価格を使用
+          if (claimCondition[5]) {
+            const priceFromContract = claimCondition[5].toString();
+            // Weiからトークン単位に変換（1e18で除算）
+            const priceInToken = Number(priceFromContract) / 1e18;
+            setMintPrice(priceInToken.toString());
+          } else {
+            setMintPrice(configuredMintPrice);
+          }
+        } catch (e) {
+          console.log("Could not fetch claim condition, using configured price");
+          setMintPrice(configuredMintPrice);
+        }
+
         setLoading(false);
       } catch (error) {
         console.error("Error fetching contract info:", error);
@@ -266,22 +295,31 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
 
       // claimToが失敗した場合、直接claim関数を呼ぶ
       const mintAttempts = [
-        // ReZipangコントラクトの正確なclaim関数シグネチャ
+        // コントラクトが期待する通貨でclaimを試す
         {
-          name: "claim (ReZipang contract)",
-          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) _allowlistProof, bytes _data)",
+          name: "claim (with USDC currency)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
           params: [
             account.address,
             BigInt(tokenId),
             BigInt(quantity),
-            paymentTokenAddress || "0x0000000000000000000000000000000000000000",
-            toWei(mintPrice),
-            {
-              proof: [],
-              quantityLimitPerWallet: BigInt(maxMintAmount),
-              pricePerToken: toWei(mintPrice),
-              currency: paymentTokenAddress || "0x0000000000000000000000000000000000000000"
-            },
+            "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC on Polygon
+            BigInt(0), // 0 price for USDC (free claim)
+            [],
+            "0x"
+          ]
+        },
+        // MATICでのclaimを試す
+        {
+          name: "claim (with native MATIC)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
+          params: [
+            account.address,
+            BigInt(tokenId),
+            BigInt(quantity),
+            "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token address
+            BigInt(0), // 0 price
+            [],
             "0x"
           ]
         },
