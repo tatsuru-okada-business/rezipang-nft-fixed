@@ -151,11 +151,17 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
 
         // まずZENYトークンのapprove
         try {
+          console.log("Approving ZENY payment:", {
+            spender: contractAddress,
+            amount: totalPayment.toString(),
+            paymentTokenAddress
+          });
+          
           // approve関数でトランザクションを準備
           const approveTx = approve({
             contract: paymentToken,
             spender: contractAddress,
-            amount: totalPayment,
+            amount: totalPayment.toString(),  // 文字列に変換
           });
 
           // トランザクションを送信（コールバックベース）
