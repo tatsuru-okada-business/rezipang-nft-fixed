@@ -1,0 +1,29 @@
+{
+  "title": "限定NFTミント",
+  "subtitle": "アローリストに登録されたウォレットのみがミント可能です",
+  "wallet": {
+    "connect": "ウォレット接続",
+    "connected": "接続済み",
+    "notConnected": "ミントするにはウォレットを接続してください",
+    "allowlisted": "✅ あなたのウォレットはアローリストに登録されています",
+    "notAllowlisted": "❌ あなたのウォレットはアローリストに登録されていません",
+    "checking": "アローリストを確認中..."
+  },
+  "mint": {
+    "title": "NFTをミント",
+    "button": "NFTをミント",
+    "minting": "ミント中...",
+    "notAllowlisted": "アローリスト未登録",
+    "success": "🎉 NFTのミントに成功しました！",
+    "mintAnother": "もう一つミント",
+    "error": "エラー",
+    "contractNotConfigured": "コントラクトアドレスが設定されていません"
+  },
+  "howItWorks": {
+    "title": "使い方：",
+    "step1": "上のボタンでウォレットを接続",
+    "step2": "アドレスがアローリストに登録されているか確認",
+    "step3": "登録されていればNFTをミント可能",
+    "step4": "各ウォレットはこのコレクションから1つのNFTをミント可能"
+  }
+}

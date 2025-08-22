@@ -1,0 +1,29 @@
+{
+  "title": "Exclusive NFT Mint",
+  "subtitle": "Only allowlisted wallets can mint our exclusive NFT collection",
+  "wallet": {
+    "connect": "Connect Wallet",
+    "connected": "Connected",
+    "notConnected": "Please connect your wallet to mint",
+    "allowlisted": "✅ Your wallet is allowlisted",
+    "notAllowlisted": "❌ Your wallet is not allowlisted",
+    "checking": "Checking allowlist status..."
+  },
+  "mint": {
+    "title": "Mint Your NFT",
+    "button": "Mint NFT",
+    "minting": "Minting...",
+    "notAllowlisted": "Not Allowlisted",
+    "success": "🎉 NFT Minted Successfully!",
+    "mintAnother": "Mint Another",
+    "error": "Error",
+    "contractNotConfigured": "Contract address not configured"
+  },
+  "howItWorks": {
+    "title": "How it works:",
+    "step1": "Connect your wallet using the button above",
+    "step2": "We'll check if your address is on the allowlist",
+    "step3": "If you're allowlisted, you can mint your NFT",
+    "step4": "Each wallet can mint one NFT from this collection"
+  }
+}
