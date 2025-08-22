@@ -18,7 +18,7 @@ const CONFIG = {
   },
   // Vercelデフォルトドメイン
   vercel: {
-    url: 'https://rezipang-nfts-mint.vercel.app', // 実際のURLに変更してください
+    url: 'https://rezipang-nfts.vercel.app', // 実際のURLに変更してください
     name: 'Vercel環境'
   }
 };
@@ -27,11 +27,11 @@ const CONFIG = {
 function loadTestWallets() {
   const csvPath = path.join(__dirname, '..', 'allowlist.csv');
   const wallets = [];
-  
+
   try {
     const csvContent = fs.readFileSync(csvPath, 'utf8');
     const lines = csvContent.split('\n').filter(line => line.trim());
-    
+
     // ヘッダー行をスキップして、最初の2つのアドレスを取得
     for (let i = 1; i < Math.min(3, lines.length); i++) {
       const [address, maxMintAmount] = lines[i].split(',');
@@ -43,19 +43,19 @@ function loadTestWallets() {
         });
       }
     }
-    
+
     // 未登録アドレスをサンプルとして追加
     wallets.push({
       address: '0x0000000000000000000000000000000000000000',
       maxMintAmount: 0,
       status: '未登録'
     });
-    
+
   } catch (error) {
     log('  ⚠️  allowlist.csv の読み込みに失敗しました', 'red');
     console.error(error);
   }
-  
+
   return wallets;
 }
 
@@ -89,7 +89,7 @@ async function testAPI(baseUrl, endpoint, method = 'GET', body = null) {
     };
 
     const protocol = url.protocol === 'https:' ? https : require('http');
-    
+
     const req = protocol.request(url, options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
@@ -104,11 +104,11 @@ async function testAPI(baseUrl, endpoint, method = 'GET', body = null) {
     });
 
     req.on('error', reject);
-    
+
     if (body) {
       req.write(JSON.stringify(body));
     }
-    
+
     req.end();
   });
 }
@@ -117,10 +117,10 @@ async function testAPI(baseUrl, endpoint, method = 'GET', body = null) {
 async function checkAllowlist(baseUrl, walletInfo) {
   const { address, maxMintAmount: expectedMax, status } = walletInfo;
   log(`\n  アドレス: ${address} (${status})`, 'cyan');
-  
+
   try {
     const result = await testAPI(baseUrl, '/api/verify-allowlist', 'POST', { address });
-    
+
     if (result.status === 200) {
       const { isAllowlisted, maxMintAmount } = result.data;
       if (isAllowlisted) {
@@ -140,14 +140,14 @@ async function checkAllowlist(baseUrl, walletInfo) {
 // トークン情報取得
 async function checkTokens(baseUrl) {
   log('\n📦 トークン情報の取得テスト', 'bright');
-  
+
   try {
     const result = await testAPI(baseUrl, '/api/tokens');
-    
+
     if (result.status === 200) {
       const { tokens } = result.data;
       log(`  ✅ ${tokens.length}個のトークンを取得`, 'green');
-      
+
       tokens.forEach(token => {
         log(`    - Token #${token.id}: ${token.name} (供給量: ${token.totalSupply || '不明'})`, 'cyan');
       });
@@ -162,12 +162,12 @@ async function checkTokens(baseUrl) {
 // 環境変数チェック
 function checkEnvVars() {
   log('\n🔧 環境変数の確認', 'bright');
-  
+
   const envFile = path.join(__dirname, '..', '.env.local');
   if (fs.existsSync(envFile)) {
     const envContent = fs.readFileSync(envFile, 'utf8');
     const lines = envContent.split('\n');
-    
+
     const requiredVars = [
       'NEXT_PUBLIC_THIRDWEB_CLIENT_ID',
       'NEXT_PUBLIC_CONTRACT_ADDRESS',
@@ -176,7 +176,7 @@ function checkEnvVars() {
       'NEXT_PUBLIC_PAYMENT_TOKEN_SYMBOL',
       'NEXT_PUBLIC_MINT_PRICE'
     ];
-    
+
     requiredVars.forEach(varName => {
       const found = lines.some(line => line.startsWith(varName));
       if (found) {
@@ -193,21 +193,21 @@ function checkEnvVars() {
 // Vercelドメインの影響分析
 function analyzeVercelDomain() {
   log('\n🌐 Vercelデフォルトドメインの影響分析', 'bright');
-  
+
   log('\n  問題の可能性:', 'yellow');
   log('  1. MetaMaskのフィッシング検出', 'cyan');
   log('     - *.vercel.appドメインは開発用として認識される可能性');
   log('     - カスタムドメインの使用を推奨');
-  
+
   log('\n  2. Thirdweb APIキーのドメイン制限', 'cyan');
   log('     - Thirdwebダッシュボードで以下を追加する必要:');
   log('       • rezipang-nfts-mint.vercel.app');
   log('       • *.vercel.app (開発用)');
-  
+
   log('\n  3. CORSポリシー', 'cyan');
   log('     - クロスオリジンリクエストの制限');
   log('     - Next.jsのmiddleware.tsで設定可能');
-  
+
   log('\n  推奨対策:', 'green');
   log('  1. カスタムドメインの設定（例: mint.rezipang.com）');
   log('  2. Thirdwebダッシュボードでドメイン許可');
@@ -219,33 +219,33 @@ async function runTests() {
   log('='.repeat(60), 'bright');
   log('🚀 ReZipang NFT MINTサイト 動作確認スクリプト', 'bright');
   log('='.repeat(60), 'bright');
-  
+
   // 環境変数チェック
   checkEnvVars();
-  
+
   // 各環境でのテスト
   for (const [key, config] of Object.entries(CONFIG)) {
     log(`\n${'='.repeat(40)}`, 'bright');
     log(`📍 ${config.name} テスト`, 'bright');
     log(`   URL: ${config.url}`, 'cyan');
     log('='.repeat(40), 'bright');
-    
+
     // サーバー接続確認
     log('\n🔌 サーバー接続確認', 'bright');
     try {
       const testUrl = key === 'local' ? 'http://localhost:3000' : config.url;
       await testAPI(testUrl, '/');
       log('  ✅ サーバーに接続成功', 'green');
-      
+
       // トークン情報取得
       await checkTokens(testUrl);
-      
+
       // アローリストチェック
       log('\n👥 アローリスト確認', 'bright');
       for (const walletInfo of TEST_WALLETS) {
         await checkAllowlist(testUrl, walletInfo);
       }
-      
+
     } catch (error) {
       if (key === 'local') {
         log('  ⚠️  ローカルサーバーが起動していません', 'yellow');
@@ -255,10 +255,10 @@ async function runTests() {
       }
     }
   }
-  
+
   // Vercelドメインの影響分析
   analyzeVercelDomain();
-  
+
   log('\n' + '='.repeat(60), 'bright');
   log('✨ テスト完了', 'bright');
   log('='.repeat(60), 'bright');
