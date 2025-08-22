@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useActiveAccount, useSendTransaction } from "thirdweb/react";
 import { prepareContractCall, getContract, readContract, toWei } from "thirdweb";
 import { approve } from "thirdweb/extensions/erc20";
+import { claimTo } from "thirdweb/extensions/erc1155";
 import { client, chain, contractAddress } from "@/lib/thirdweb";
 import { getNFTName, getPaymentInfo, isFeatureEnabled } from "@/lib/projectConfig";
 import { NFTImage } from "./NFTImage";
@@ -209,78 +210,205 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
     // MATICの場合の支払い金額（ZENYの場合は0）
     const totalValue = paymentTokenAddress ? BigInt(0) : toWei((Number(mintPrice) * quantity).toString());
 
-    // ミント関数のパターンを試す
-    const mintAttempts = [
-      // ERC1155パターン
-      {
-        name: "mint (ERC1155)",
-        method: "function mint(address to, uint256 id, uint256 amount)",
-        params: [account.address, BigInt(tokenId), BigInt(quantity)]
-      },
-      {
-        name: "mintTo (ERC1155)",
-        method: "function mintTo(address to, uint256 tokenId, uint256 amount)",
-        params: [account.address, BigInt(tokenId), BigInt(quantity)]
-      },
-      // ERC721パターン
-      {
-        name: "mint (ERC721)",
-        method: "function mint(address to, uint256 amount)",
-        params: [account.address, BigInt(quantity)]
-      },
-      {
-        name: "mint (simple)",
-        method: "function mint(uint256 amount)",
-        params: [BigInt(quantity)]
-      },
-      // Public mint
-      {
-        name: "publicMint",
-        method: "function publicMint(uint256 quantity)",
-        params: [BigInt(quantity)]
-      },
-    ];
+    // デバッグ情報を追加
+    console.log("Mint Details:", {
+      account: account.address,
+      contractAddress,
+      tokenId,
+      quantity,
+      totalValue: totalValue.toString(),
+      paymentTokenAddress,
+      mintPrice,
+      chain: chain.id
+    });
 
-    let success = false;
-    
-    for (const attempt of mintAttempts) {
-      if (success) break;
+    try {
+      // ReZipangコントラクトに対応した実装
+      // このコントラクトはDropERC1155コントラクトで、claim関数を使用
       
+      // 1. SDK v5のclaimToを試す（これが正しいメソッド）
       try {
-        console.log(`Trying ${attempt.name}...`);
+        console.log("🔄 Trying SDK v5 claimTo for DropERC1155...");
+        console.log("Parameters:", {
+          to: account.address,
+          tokenId,
+          quantity,
+          from: account.address
+        });
         
-        const transaction = prepareContractCall({
+        const claimTransaction = claimTo({
           contract,
-          method: attempt.method as any,
-          params: attempt.params as unknown[],
-          value: totalValue,
+          to: account.address,
+          tokenId: BigInt(tokenId),
+          quantity: BigInt(quantity),
+          from: account.address, // アローリスト対応のためにfromを指定
         });
 
-        sendTransaction(transaction, {
-          onSuccess: () => {
-            console.log(`Success with ${attempt.name}!`);
-            setMintSuccess(true);
-            setMinting(false);
-            success = true;
-          },
-          onError: (error) => {
-            console.error(`${attempt.name} failed:`, error);
-            setMintError(`Failed: ${error.message}`);
-            setMinting(false);
-          },
+        await new Promise<void>((resolve, reject) => {
+          sendTransaction(claimTransaction, {
+            onSuccess: (result) => {
+              console.log("✅ Success with claimTo!", result);
+              setMintSuccess(true);
+              setMinting(false);
+              setMintError(null);
+              resolve();
+            },
+            onError: (error) => {
+              console.error("❌ claimTo failed:", error);
+              reject(error);
+            },
+          });
         });
-
-        // トランザクションが送信されたら待つ
-        if (!success) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-      } catch (error) {
-        console.error(`${attempt.name} preparation failed:`, error);
+        return;
+      } catch (claimError: any) {
+        console.error("⚠️ claimTo failed, trying direct claim...", claimError);
       }
-    }
 
-    if (!success && !minting) {
-      setMintError("Could not find valid mint function. Please check contract.");
+      // claimToが失敗した場合、直接claim関数を呼ぶ
+      const mintAttempts = [
+        // ReZipangコントラクトの正確なclaim関数シグネチャ
+        {
+          name: "claim (ReZipang contract)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) _allowlistProof, bytes _data)",
+          params: [
+            account.address,
+            BigInt(tokenId),
+            BigInt(quantity),
+            paymentTokenAddress || "0x0000000000000000000000000000000000000000",
+            toWei(mintPrice),
+            {
+              proof: [],
+              quantityLimitPerWallet: BigInt(maxMintAmount),
+              pricePerToken: toWei(mintPrice),
+              currency: paymentTokenAddress || "0x0000000000000000000000000000000000000000"
+            },
+            "0x"
+          ]
+        },
+        // シンプルなclaim関数（フォールバック）
+        {
+          name: "claim (simple with empty proof)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
+          params: [
+            account.address,
+            BigInt(tokenId),
+            BigInt(quantity),
+            paymentTokenAddress || "0x0000000000000000000000000000000000000000",
+            toWei(mintPrice),
+            [],
+            "0x"
+          ]
+        },
+        {
+          name: "claim (simple)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity)",
+          params: [account.address, BigInt(tokenId), BigInt(quantity)]
+        },
+        // ERC1155標準パターン
+        {
+          name: "mint (ERC1155 with data)",
+          method: "function mint(address to, uint256 id, uint256 amount, bytes data)",
+          params: [account.address, BigInt(tokenId), BigInt(quantity), "0x"]
+        },
+        {
+          name: "mintTo (ERC1155)",
+          method: "function mintTo(address to, uint256 tokenId, uint256 amount)",
+          params: [account.address, BigInt(tokenId), BigInt(quantity)]
+        },
+        // LazyMint対応
+        {
+          name: "lazyMint",
+          method: "function lazyMint(uint256 _amount, string _baseURIForTokens, bytes _data)",
+          params: [BigInt(quantity), "", "0x"]
+        },
+        // ERC721パターン（フォールバック）
+        {
+          name: "safeMint",
+          method: "function safeMint(address to, uint256 quantity)",
+          params: [account.address, BigInt(quantity)]
+        },
+        {
+          name: "publicMint",
+          method: "function publicMint(uint256 quantity)",
+          params: [BigInt(quantity)]
+        },
+      ];
+
+      let lastError: any = null;
+      let attemptedMethods: string[] = ["claimTo (SDK v5)"];
+      
+      for (const attempt of mintAttempts) {
+        try {
+          console.log(`🔄 Trying ${attempt.name} with params:`, attempt.params);
+          attemptedMethods.push(attempt.name);
+          
+          const transaction = prepareContractCall({
+            contract,
+            method: attempt.method as any,
+            params: attempt.params as unknown[],
+            value: totalValue,
+          });
+
+          // トランザクションを送信
+          await new Promise<void>((resolve, reject) => {
+            sendTransaction(transaction, {
+              onSuccess: (result) => {
+                console.log(`✅ Success with ${attempt.name}!`, result);
+                setMintSuccess(true);
+                setMinting(false);
+                setMintError(null);
+                resolve();
+              },
+              onError: (error) => {
+                console.error(`❌ ${attempt.name} failed:`, error);
+                lastError = error;
+                reject(error);
+              },
+            });
+          });
+
+          // 成功したらループを抜ける
+          return;
+          
+        } catch (error: any) {
+          console.error(`⚠️ ${attempt.name} failed:`, error);
+          lastError = error;
+          
+          // エラーメッセージを解析
+          const errorMessage = error?.message || error?.toString() || "";
+          
+          // 特定のエラーメッセージの処理
+          if (errorMessage.includes("insufficient")) {
+            setMintError(locale === "ja" 
+              ? "残高不足です。トークンまたはガス代を確認してください。" 
+              : "Insufficient balance. Please check your tokens or gas.");
+            setMinting(false);
+            return;
+          }
+          
+          // "execution reverted"でも次の方法を試す
+          continue;
+        }
+      }
+
+      // すべての方法が失敗した場合
+      const errorDetails = lastError?.message || "Unknown error";
+      console.error("🔴 All mint attempts failed. Methods tried:", attemptedMethods);
+      console.error("Last error details:", lastError);
+      
+      setMintError(
+        locale === "ja" 
+          ? `ミントに失敗しました。\n試した方法: ${attemptedMethods.join(", ")}\n詳細: ${errorDetails}` 
+          : `Mint failed.\nMethods tried: ${attemptedMethods.join(", ")}\nDetails: ${errorDetails}`
+      );
+    } catch (unexpectedError: any) {
+      console.error("Unexpected error:", unexpectedError);
+      setMintError(
+        locale === "ja" 
+          ? `予期しないエラーが発生しました: ${unexpectedError.message}` 
+          : `Unexpected error: ${unexpectedError.message}`
+      );
+    } finally {
       setMinting(false);
     }
   };
@@ -493,7 +621,20 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
             <div className="font-semibold mb-1">
               {locale === "ja" ? "エラー" : "Error"}
             </div>
-            {mintError}
+            <div className="whitespace-pre-wrap">{mintError}</div>
+            {/* デバッグ用の追加情報 */}
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs underline">
+                {locale === "ja" ? "詳細情報" : "Debug Info"}
+              </summary>
+              <div className="text-xs mt-1 font-mono bg-white p-2 rounded">
+                <div>Contract: {contractAddress}</div>
+                <div>Token ID: {tokenId}</div>
+                <div>Quantity: {quantity}</div>
+                <div>Price: {mintPrice} {currencySymbol}</div>
+                <div>Payment Token: {paymentTokenAddress || "Native"}</div>
+              </div>
+            </details>
           </div>
         )}
 

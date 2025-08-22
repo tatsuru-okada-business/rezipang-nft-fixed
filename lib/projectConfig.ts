@@ -62,6 +62,7 @@ export function getPaymentInfo() {
       symbol: config.payment.tokenSymbol,
       address: config.payment.tokenAddress,
       price: config.payment.defaultPrice,
+      useCustomToken: true,
     };
   }
   return null;

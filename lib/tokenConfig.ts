@@ -60,9 +60,9 @@ function parseTokenCSV(csvData: string): TokenConfig {
     headers.forEach((header, index) => {
       const value = values[index];
       if (header === 'id' || header === 'maxSupply') {
-        token[header] = parseInt(value);
+        (token as any)[header] = parseInt(value);
       } else {
-        token[header] = value;
+        (token as any)[header] = value;
       }
     });
     
