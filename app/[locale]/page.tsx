@@ -4,7 +4,6 @@ import { NFTDetails } from "@/components/NFTDetails";
 import { PriceChecker } from "@/components/PriceChecker";
 import { MintSimulator } from "@/components/MintSimulator";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { DebugInfo } from "@/components/DebugInfo";
 import { isFeatureEnabled } from "@/lib/projectConfig";
 import en from "@/locales/en.json";
 import ja from "@/locales/ja.json";
@@ -81,8 +80,6 @@ export default async function Home({
         </div>
       </div>
       
-      {/* デバッグ情報（常に表示 - エラー報告用） */}
-      <DebugInfo locale={locale} />
     </main>
   );
 }

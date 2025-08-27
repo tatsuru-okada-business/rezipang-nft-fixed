@@ -1,26 +1,91 @@
 import { NextResponse } from 'next/server';
 import { loadTokenConfig } from '@/lib/tokenConfig';
 import { detectAvailableTokens, fetchMultipleTokenMetadata, type TokenMetadata } from '@/lib/tokenMetadata';
+import { getMergedTokenConfigs } from '@/lib/localSettings';
+import { withCache } from '@/lib/cache';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const source = searchParams.get('source') || 'auto'; // auto, file, contract
+    const tokenId = searchParams.get('tokenId'); // 特定のトークンIDを取得
     
     // ソースに応じてトークン情報を取得
     let tokens: TokenMetadata[] = [];
+    
+    // Use merged config (admin-config.json + local-settings.json)
+    try {
+      const mergedTokens = getMergedTokenConfigs();
+      
+      // 特定のトークンIDが指定されている場合
+      if (tokenId !== null) {
+        const targetToken = mergedTokens.find(t => t.tokenId === parseInt(tokenId));
+        if (targetToken) {
+          tokens = [{
+            id: targetToken.tokenId,
+            name: targetToken.name,
+            description: targetToken.description,
+            image: targetToken.image,
+            price: targetToken.currentPrice,
+            currency: targetToken.currency,
+            totalSupply: targetToken.totalSupply,
+            salesPeriodEnabled: targetToken.salesPeriodEnabled,
+            salesStartDate: targetToken.salesStartDate,
+            salesEndDate: targetToken.salesEndDate,
+            isUnlimited: targetToken.isUnlimited,
+            attributes: []
+          }];
+          return NextResponse.json({ tokens }, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
+            }
+          });
+        }
+      }
+      
+      // Filter and map tokens (表示有効なもののみ)
+      tokens = mergedTokens
+        .filter(token => 
+          token.displayEnabled && 
+          !token.name.match(/^Token #\d+$/)
+        )
+        .map(token => ({
+          id: token.tokenId,
+          name: token.name,
+          description: token.description,
+          image: token.image,
+          price: token.currentPrice,
+          currency: token.currency,
+          totalSupply: token.totalSupply,
+          salesPeriodEnabled: token.salesPeriodEnabled,
+          salesStartDate: token.salesStartDate,
+          salesEndDate: token.salesEndDate,
+          isUnlimited: token.isUnlimited,
+          attributes: []
+        }))
+        .sort((a, b) => a.id - b.id);
+      
+      if (tokens.length > 0) {
+        return NextResponse.json({ tokens }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error loading merged config:', error);
+    }
     
     if (source === 'file') {
       // ファイルから読み込み（tokens.json or tokens.csv）
       const config = loadTokenConfig();
       tokens = config.tokens as TokenMetadata[];
     } else if (source === 'contract') {
-      // スマートコントラクトから直接取得
-      const availableTokenIds = process.env.NEXT_PUBLIC_AVAILABLE_TOKEN_IDS?.split(',').map(id => parseInt(id.trim())) || [2];
-      const contractTokens = await fetchMultipleTokenMetadata(availableTokenIds);
+      // スマートコントラクトから直接取得（全トークンを検出）
+      const detectedTokens = await detectAvailableTokens(20);
       
       // プロジェクト設定は適用しない（Thirdwebの正式名を使用）
-      tokens = contractTokens;
+      tokens = detectedTokens;
     } else {
       // auto: まずコントラクトから試し、失敗したらファイルから
       try {
@@ -45,7 +110,7 @@ export async function GET(request: Request) {
     
     return NextResponse.json({ tokens }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
       }
     });
   } catch (error) {

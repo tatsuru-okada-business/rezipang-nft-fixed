@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getContract, readContract } from "thirdweb";
 import { client, chain, contractAddress } from "@/lib/thirdweb";
 
@@ -11,7 +11,19 @@ interface PriceCheckerProps {
 export function PriceChecker({ locale = "en" }: PriceCheckerProps) {
   const [results, setResults] = useState<string>("");
   const [checking, setChecking] = useState(false);
-  const tokenId = parseInt(process.env.NEXT_PUBLIC_DEFAULT_TOKEN_ID || "4");
+  const [tokenId, setTokenId] = useState<number | null>(null);
+  
+  // Get default token from API
+  useEffect(() => {
+    fetch('/api/default-token')
+      .then(res => res.json())
+      .then(data => {
+        if (data.token?.tokenId !== undefined) {
+          setTokenId(data.token.tokenId);
+        }
+      })
+      .catch(console.error);
+  }, []);
   
   const isJapanese = locale === "ja";
 

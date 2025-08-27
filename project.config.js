@@ -10,17 +10,13 @@ const projectConfig = {
   
   // NFT情報
   nft: {
-    // 特定のトークンIDに対する名称設定
-    // tokens.jsonまたはtokens.csvが存在する場合はそちらが優先されます
-    tokenNames: {
-      2: "純金のパスポートNFT",  // Token ID 2の場合の表示名
-      4: "ReZipang NFT #4",      // Token ID 4の場合の表示名
-      // 他のトークンIDを追加可能
-    },
-    defaultName: "ReZipang NFT", // デフォルトのNFT名
-    collectionName: "ReZipang Collection",
+    // トークン名はThirdwebから動的に取得されます
+    // ハードコーディングは使用しません
+    tokenNames: {}, // 空のオブジェクト - Thirdwebから取得
+    defaultName: "NFT", // フォールバック用のデフォルト名
+    collectionName: "NFT Collection",
     // 外部トークン設定ファイルを使用するか
-    useExternalTokenConfig: true, // trueの場合、tokens.json/csvを優先
+    useExternalTokenConfig: false, // falseにしてThirdwebのデータを使用
   },
 
   // 支払い設定

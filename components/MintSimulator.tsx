@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import { getContract, readContract, prepareContractCall, toWei } from "thirdweb";
 import { client, chain, contractAddress } from "@/lib/thirdweb";
@@ -13,7 +13,19 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
   const account = useActiveAccount();
   const [simulating, setSimulating] = useState(false);
   const [results, setResults] = useState<string>("");
-  const tokenId = parseInt(process.env.NEXT_PUBLIC_DEFAULT_TOKEN_ID || "4");
+  const [tokenId, setTokenId] = useState<number | null>(null);
+  
+  // Get default token from API
+  useEffect(() => {
+    fetch('/api/default-token')
+      .then(res => res.json())
+      .then(data => {
+        if (data.token?.tokenId !== undefined) {
+          setTokenId(data.token.tokenId);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const isJapanese = locale === "ja";
 
@@ -47,8 +59,8 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
     output += isJapanese ? "\n2️⃣ 価格チェック:\n" : "\n2️⃣ PRICE CHECK:\n";
     let mintPrice = "0";
     const priceFunctions = [
-      { method: "function getPrice(uint256 tokenId) view returns (uint256)", params: [BigInt(tokenId)] },
-      { method: "function pricePerToken(uint256 tokenId) view returns (uint256)", params: [BigInt(tokenId)] },
+      { method: "function getPrice(uint256 tokenId) view returns (uint256)", params: [BigInt(tokenId ?? 0)] },
+      { method: "function pricePerToken(uint256 tokenId) view returns (uint256)", params: [BigInt(tokenId ?? 0)] },
       { method: "function price() view returns (uint256)", params: [] },
       { method: "function mintPrice() view returns (uint256)", params: [] },
       { method: "function cost() view returns (uint256)", params: [] },
@@ -109,7 +121,7 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
       {
         name: "mint(address,uint256,uint256)",
         method: "function mint(address to, uint256 id, uint256 amount)",
-        params: [account.address, BigInt(tokenId), BigInt(1)]
+        params: [account.address, BigInt(tokenId ?? 0), BigInt(1)]
       },
       {
         name: "mint(address,uint256)",
@@ -119,7 +131,7 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
       {
         name: "claim(address,uint256,uint256)",
         method: "function claim(address receiver, uint256 tokenId, uint256 quantity)",
-        params: [account.address, BigInt(tokenId), BigInt(1)]
+        params: [account.address, BigInt(tokenId ?? 0), BigInt(1)]
       },
       {
         name: "publicMint(uint256)",

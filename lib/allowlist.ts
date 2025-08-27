@@ -86,3 +86,13 @@ export function getAllowlistEntry(address: string): AllowlistEntry | null {
 export function clearAllowlistCache() {
   cachedAllowlist = null;
 }
+
+// Map形式でアローリストデータを取得
+export function getAllowlistData(): Map<string, number> {
+  const entries = getAllowlistEntries();
+  const map = new Map<string, number>();
+  entries.forEach(entry => {
+    map.set(entry.address, entry.maxMintAmount);
+  });
+  return map;
+}

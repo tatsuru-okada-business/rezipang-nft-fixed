@@ -1,108 +1,63 @@
-# ReZipang NFT Minting Site
+# 🔥 ReZipang NFT ミントサイト
 
-A production-ready NFT minting website built with Next.js 14, Thirdweb SDK v5, and TypeScript.
-Easily customizable for different NFT projects through configuration files.
+Polygon上のERC1155 NFTミントサイト。Thirdweb SDK v5を使用した最新の実装。
 
-## ✨ Features
+## 📖 ドキュメント
 
-- 🔐 **Allowlist Minting** - Only pre-approved addresses can mint
-- 💰 **Dynamic Pricing** - Automatic price detection from smart contract  
-- 🌍 **Multi-language** - Japanese/English support
-- 🧪 **Mint Simulator** - Test before actual minting
-- 📊 **Price Checker** - Verify pricing configuration
-- 🎨 **ERC1155 Support** - Multiple token ID support
-- 📱 **Responsive Design** - Mobile-friendly interface
-- ⚙️ **Customizable** - Easy configuration for different projects
+**[📚 統合ドキュメントを見る](./docs/UNIFIED_DOCUMENTATION.md)**
 
-## 🚀 Quick Start
+すべての情報が1つのドキュメントに統合されています。
+
+## 🚀 クイックスタート
 
 ```bash
-# Clone repository
-git clone [repository-url]
-cd Rezipang-NFTs-MINT
-
-# Install dependencies (using pnpm)
+# 依存関係インストール
 pnpm install
 
-# Setup environment variables
+# 環境変数設定
 cp .env.local.example .env.local
-# Edit .env.local with your settings
 
-# Run development server
-pnpm run dev
+# 開発サーバー起動（ポート3001）
+npm run dev
+
+# http://localhost:3001 でアクセス
 ```
 
-Visit http://localhost:3000
-
-## 📚 Documentation
-
-Detailed guides are available in the `/docs` folder:
-
-- **[Project Customization Guide](./docs/PROJECT_CUSTOMIZATION_GUIDE.md)** - How to customize for your NFT project
-- **[Vercel Deploy Guide](./docs/VERCEL_DEPLOY_GUIDE.md)** - Complete deployment instructions
-- **[Complete Setup Guide](./docs/COMPLETE_SETUP_GUIDE.md)** - Full installation and configuration
-- **[Price Setup Guide](./docs/PRICE_SETUP.md)** - How to configure NFT pricing
-- **[Allowlist Setup](./docs/ALLOWLIST_SETUP.md)** - Managing allowlisted addresses
-- **[Multiple NFTs Guide](./docs/MULTIPLE_NFTS.md)** - Supporting multiple collections
-- **[Technical Specification](./docs/TECHNICAL_SPEC.md)** - Architecture and implementation details
-
-## 🔧 Configuration
-
-### Project Settings
-
-Edit `project.config.js` to customize:
-- NFT names and collection details
-- Payment tokens (ZENY, MATIC, ETH)
-- UI features and theme
-- Language settings
-
-See [Project Customization Guide](./docs/PROJECT_CUSTOMIZATION_GUIDE.md) for details.
-
-### Required Environment Variables
-
-```env
-# Thirdweb
-NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_client_id
-THIRDWEB_SECRET_KEY=your_secret_key
-
-# NFT Contract
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xeEb45AD49C073b0493B7104c8975ac7eaF8d003E
-NEXT_PUBLIC_CHAIN_ID=137
-NEXT_PUBLIC_DEFAULT_TOKEN_ID=2
-```
-
-## 🛠 Tech Stack
-
-- **Framework**: Next.js 14+ (App Router)
-- **Blockchain**: Thirdweb SDK v5
-- **Styling**: Tailwind CSS
-- **Language**: TypeScript
-- **Package Manager**: pnpm
-
-## 📝 Scripts
+## 🔄 コントラクト切り替え
 
 ```bash
-pnpm run dev      # Start development server
-pnpm run build    # Build for production
-pnpm run start    # Start production server
-pnpm run lint     # Run ESLint
+# テスト用コントラクトに切り替え
+./scripts/switch-contract.sh test
+
+# 本番用コントラクトに切り替え  
+./scripts/switch-contract.sh prod
 ```
 
-## 🚢 Deployment
+**重要**: コントラクトを切り替えると設定ファイルがリセットされます。必要に応じてバックアップを取ってください。
 
-This project is optimized for [Vercel](https://vercel.com) deployment. See [deployment guide](./docs/COMPLETE_SETUP_GUIDE.md#デプロイ) for details.
+## 📁 プロジェクト構造
 
-## 📄 License
+```
+├── app/              # Next.js App Router
+├── components/       # Reactコンポーネント
+├── lib/             # ユーティリティ
+├── docs/            # ドキュメント
+├── scripts/         # 便利スクリプト
+└── public/          # 静的ファイル
+```
 
-[Your License]
+## 🛠 技術スタック
 
-## 🤝 Support
+- **Next.js 15** - フレームワーク
+- **Thirdweb SDK v5** - ブロックチェーン統合
+- **TypeScript** - 型安全性
+- **Tailwind CSS** - スタイリング
+- **pnpm** - パッケージ管理
 
-For issues or questions:
-- Check [documentation](./docs/)
-- Open a [GitHub Issue](https://github.com/your-repo/issues)
-- Join [Thirdweb Discord](https://discord.gg/thirdweb)
+## 📝 ライセンス
+
+プライベートプロジェクト
 
 ---
 
-Built with ❤️ using [Thirdweb](https://thirdweb.com) and [Next.js](https://nextjs.org)
+詳細は[統合ドキュメント](./docs/UNIFIED_DOCUMENTATION.md)を参照してください。

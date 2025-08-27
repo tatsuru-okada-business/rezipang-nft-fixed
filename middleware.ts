@@ -15,6 +15,11 @@ function getLocale(request: NextRequest) {
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
+  // Skip locale redirect for admin routes
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.next()
+  }
+  
   // Check if pathname is missing locale
   const pathnameIsMissingLocale = locales.every(
     (locale) => !pathname.startsWith(`/${locale}/`) && pathname !== `/${locale}`

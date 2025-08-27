@@ -1,0 +1,31 @@
+{
+  "contractAddress": "0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1",
+  "lastSync": "2025-08-27T08:36:15.060Z",
+  "tokens": [
+    {
+      "thirdweb": {
+        "tokenId": 0,
+        "name": "MINT-TEST-NFT",
+        "totalSupply": "0",
+        "uri": "",
+        "image": "https://ipfs.io/ipfs/QmafH5hjtEewmRecr5vgHsAEJWFznEHGN8nydZvvRV8pkk/0.png",
+        "description": "ミントテスト用のNFT",
+        "currentPrice": "1",
+        "currency": "ZENY",
+        "maxPerWallet": 100,
+        "merkleRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "claimConditionActive": true
+      },
+      "local": {
+        "tokenId": 0,
+        "displayEnabled": true,
+        "displayOrder": 0,
+        "isDefaultDisplay": true,
+        "salesPeriodEnabled": false,
+        "isUnlimited": true,
+        "totalMinted": 0,
+        "lastSyncTime": "2025-08-27T08:36:15.060Z"
+      }
+    }
+  ]
+}

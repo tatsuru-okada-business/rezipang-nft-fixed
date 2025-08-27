@@ -19,6 +19,29 @@ export function NFTImage({ tokenId, className = "", showDetails = false }: NFTIm
 
   useEffect(() => {
     async function fetchNFTData() {
+      try {
+        // まずAPIからトークン情報を取得
+        const response = await fetch(`/api/tokens?tokenId=${tokenId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.tokens && data.tokens.length > 0) {
+            const token = data.tokens[0];
+            setNftData({
+              metadata: {
+                name: token.name,
+                description: token.description,
+                image: token.image
+              }
+            });
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (apiError) {
+        console.warn(`Failed to fetch token from API for #${tokenId}:`, apiError);
+      }
+
+      // APIから取得できない場合はThirdwebから直接取得
       if (!contractAddress) {
         setError("No contract address");
         setLoading(false);
