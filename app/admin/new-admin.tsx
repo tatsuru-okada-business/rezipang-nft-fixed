@@ -6,6 +6,7 @@ import { ConnectButton } from 'thirdweb/react';
 import { client } from '@/lib/thirdweb';
 import type { ManagedToken } from '@/lib/types/adminConfig';
 import { formatPrice } from '@/lib/formatPrice';
+import { ProjectSettings } from '@/components/admin/ProjectSettings';
 
 const ADMIN_ADDRESSES = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
 
@@ -752,6 +753,11 @@ export default function NewAdminPanel() {
             </div>
           </div>
         )}
+      </div>
+      
+      {/* プロジェクト設定セクション */}
+      <div className="mt-8">
+        <ProjectSettings />
       </div>
       
       {/* 保存中のグローバルオーバーレイ（最前面） */}
