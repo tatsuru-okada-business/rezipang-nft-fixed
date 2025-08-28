@@ -55,14 +55,13 @@ export function getMergedTokenConfigs(): MergedTokenConfig[] {
         image: token.thirdweb.image || '',
         description: localConfig.customDescription || token.thirdweb.description || '',
         currentPrice: token.thirdweb.currentPrice || localConfig.customPrice || '0',
-        currency: token.thirdweb.currency || 'POL',
+        currency: token.thirdweb.currency || '',
         merkleRoot: token.thirdweb.merkleRoot,
         claimConditionActive: token.thirdweb.claimConditionActive,
         
         // Local settings
         displayEnabled: localConfig.displayEnabled ?? true,
         displayOrder: localConfig.displayOrder ?? token.thirdweb.tokenId,
-        isDefaultDisplay: localConfig.isDefaultDisplay ?? false,
         salesPeriodEnabled: localConfig.salesPeriodEnabled ?? false,
         salesStartDate: localConfig.salesStartDate,
         salesEndDate: localConfig.salesEndDate,
@@ -84,9 +83,16 @@ export function getMergedTokenConfigs(): MergedTokenConfig[] {
 export function getDefaultToken(): MergedTokenConfig | null {
   const tokens = getMergedTokenConfigs();
   
-  // First, try to find token marked as default
-  const defaultToken = tokens.find(t => t.isDefaultDisplay);
-  if (defaultToken) return defaultToken;
+  // Read from default-token.json
+  try {
+    const defaultData = JSON.parse(readFileSync(join(process.cwd(), 'default-token.json'), 'utf-8'));
+    if (defaultData.tokenId !== undefined) {
+      const token = tokens.find(t => t.tokenId === defaultData.tokenId);
+      if (token) return token;
+    }
+  } catch (error) {
+    // File doesn't exist or is invalid
+  }
   
   // Fallback to defaultTokenId from settings
   const localSettings = loadLocalSettings();
@@ -104,8 +110,17 @@ export function updateTokenLocalSettings(
   tokenId: number,
   updates: Partial<LocalSettings['tokens'][string]>
 ): void {
+  // default-token.jsonからデフォルトトークンIDを取得
+  let defaultTokenId = 0;
+  try {
+    const defaultData = JSON.parse(readFileSync(join(process.cwd(), 'default-token.json'), 'utf-8'));
+    defaultTokenId = defaultData.tokenId ?? 0;
+  } catch (e) {
+    // エラーの場合は既存の設定を使用
+  }
+  
   const settings = loadLocalSettings() || {
-    defaultTokenId: 0,
+    defaultTokenId: defaultTokenId,
     tokens: {},
     lastUpdated: new Date().toISOString(),
   };
@@ -121,18 +136,16 @@ export function updateTokenLocalSettings(
 
 // Set default token
 export function setDefaultToken(tokenId: number): void {
+  // Update default-token.json
+  const defaultTokenPath = join(process.cwd(), 'default-token.json');
+  writeFileSync(defaultTokenPath, JSON.stringify({ tokenId }, null, 2));
+  
+  // Also update local settings if needed
   const settings = loadLocalSettings() || {
     defaultTokenId: tokenId,
     tokens: {},
     lastUpdated: new Date().toISOString(),
   };
-  
-  // Remove default flag from all tokens
-  Object.keys(settings.tokens).forEach(id => {
-    if (settings.tokens[id].isDefaultDisplay) {
-      settings.tokens[id].isDefaultDisplay = false;
-    }
-  });
   
   // Set new default
   settings.defaultTokenId = tokenId;
@@ -142,7 +155,6 @@ export function setDefaultToken(tokenId: number): void {
       displayOrder: tokenId,
     };
   }
-  settings.tokens[tokenId.toString()].isDefaultDisplay = true;
   
   settings.lastUpdated = new Date().toISOString();
   saveLocalSettings(settings);

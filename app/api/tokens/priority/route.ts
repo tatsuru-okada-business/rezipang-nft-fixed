@@ -34,8 +34,7 @@ export async function GET(request: Request) {
     );
     
     // デフォルトトークンを最優先
-    const defaultToken = enabledTokens.find(t => t.tokenId === defaultTokenId) || 
-                        enabledTokens.find(t => t.isDefaultDisplay);
+    const defaultToken = enabledTokens.find(t => t.tokenId === defaultTokenId);
     
     let result = {
       defaultToken: null as any,
@@ -97,8 +96,8 @@ export async function GET(request: Request) {
       result.allTokens = enabledTokens
         .sort((a, b) => {
           // デフォルトを最初に
-          if (a.isDefaultDisplay) return -1;
-          if (b.isDefaultDisplay) return 1;
+          if (a.tokenId === defaultTokenId) return -1;
+          if (b.tokenId === defaultTokenId) return 1;
           // 最近アクセスしたものを優先
           const aRecent = recentTokenIds.indexOf(a.tokenId);
           const bRecent = recentTokenIds.indexOf(b.tokenId);

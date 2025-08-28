@@ -74,7 +74,52 @@ export async function GET(req: Request) {
 // ローカル設定を更新（高速版：Thirdwebの再取得なし）
 export async function POST(req: Request) {
   try {
-    const { tokenId, settings } = await req.json();
+    const body = await req.json();
+    const { tokenId, settings } = body;
+    
+    // 同期リクエストの場合（tokenIdがない場合）
+    if (tokenId === undefined && !settings) {
+      // Thirdwebから全トークン情報を取得
+      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+      if (!contractAddress) {
+        return NextResponse.json({ error: 'Contract address not configured' }, { status: 500 });
+      }
+      
+      const thirdwebTokens = await fetchAllTokensFromThirdweb(contractAddress);
+      const localSettings = loadLocalSettings();
+      const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
+      saveLocalSettings(managedTokens);
+      
+      // admin-config.jsonに同期時刻を記録
+      const adminConfigPath = join(process.cwd(), 'admin-config.json');
+      const adminConfig = existsSync(adminConfigPath) 
+        ? JSON.parse(readFileSync(adminConfigPath, 'utf-8'))
+        : {};
+      adminConfig.lastSync = new Date().toISOString();
+      adminConfig.initialized = true;
+      writeFileSync(adminConfigPath, JSON.stringify(adminConfig, null, 2));
+      
+      const filteredTokens = managedTokens.filter(token => 
+        token.thirdweb.claimConditionActive && 
+        !token.thirdweb.name.match(/^Token #\d+$/)
+      );
+      
+      const serializedTokens = filteredTokens.map(token => ({
+        ...token,
+        thirdweb: {
+          ...token.thirdweb,
+          totalSupply: token.thirdweb.totalSupply?.toString() || '0',
+        }
+      }));
+      
+      return NextResponse.json({
+        success: true,
+        contractAddress,
+        lastSync: new Date(),
+        tokens: serializedTokens,
+        tokensSynced: filteredTokens.length
+      });
+    }
     
     if (tokenId === undefined || !settings) {
       return NextResponse.json(
@@ -85,8 +130,21 @@ export async function POST(req: Request) {
 
     // local-settings.jsonを直接更新（Thirdweb再取得なし）
     const localSettingsPath = join(process.cwd(), 'local-settings.json');
+    
+    // default-token.jsonからデフォルトトークンIDを取得
+    let defaultTokenId = 0;
+    const defaultTokenPath = join(process.cwd(), 'default-token.json');
+    if (existsSync(defaultTokenPath)) {
+      try {
+        const defaultData = JSON.parse(readFileSync(defaultTokenPath, 'utf-8'));
+        defaultTokenId = defaultData.tokenId ?? 0;
+      } catch (e) {
+        // エラーの場合は0を使用
+      }
+    }
+    
     let localSettingsData: any = {
-      defaultTokenId: 0,
+      defaultTokenId: defaultTokenId,
       tokens: {},
       lastUpdated: new Date().toISOString()
     };
@@ -95,6 +153,8 @@ export async function POST(req: Request) {
     if (existsSync(localSettingsPath)) {
       const content = readFileSync(localSettingsPath, 'utf-8');
       localSettingsData = JSON.parse(content);
+      // default-token.jsonの値を優先
+      localSettingsData.defaultTokenId = defaultTokenId;
     }
     
     // 指定されたトークンのみ更新
@@ -107,6 +167,24 @@ export async function POST(req: Request) {
     
     // 保存
     writeFileSync(localSettingsPath, JSON.stringify(localSettingsData, null, 2));
+    
+    // デフォルトトークン設定の更新
+    if (settings.isDefaultDisplay) {
+      const defaultTokenPath = join(process.cwd(), 'default-token.json');
+      writeFileSync(defaultTokenPath, JSON.stringify({ tokenId }, null, 2));
+    } else {
+      // デフォルト設定が解除された場合、現在のdefault-token.jsonをチェック
+      const defaultTokenPath = join(process.cwd(), 'default-token.json');
+      try {
+        const currentDefault = JSON.parse(readFileSync(defaultTokenPath, 'utf-8'));
+        // 現在のトークンがデフォルトだった場合のみクリア
+        if (currentDefault.tokenId === tokenId) {
+          writeFileSync(defaultTokenPath, JSON.stringify({ tokenId: 0 }, null, 2));
+        }
+      } catch {
+        // ファイルが存在しない場合は何もしない
+      }
+    }
     
     return NextResponse.json({
       success: true,

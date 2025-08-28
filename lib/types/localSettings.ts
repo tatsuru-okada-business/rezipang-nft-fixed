@@ -1,7 +1,6 @@
 export interface LocalTokenSettings {
   displayEnabled: boolean;
   displayOrder: number;
-  isDefaultDisplay?: boolean;
   salesPeriodEnabled?: boolean;
   salesStartDate?: string;
   salesEndDate?: string;
@@ -41,7 +40,6 @@ export interface MergedTokenConfig {
   // From Local Settings
   displayEnabled: boolean;
   displayOrder: number;
-  isDefaultDisplay?: boolean;
   salesPeriodEnabled?: boolean;
   salesStartDate?: string;
   salesEndDate?: string;

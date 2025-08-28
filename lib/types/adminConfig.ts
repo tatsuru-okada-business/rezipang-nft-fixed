@@ -20,7 +20,6 @@ export interface ThirdwebTokenInfo {
 export interface LocalTokenSettings {
   tokenId: number;
   displayEnabled: boolean;      // サイトに表示するか
-  isDefaultDisplay: boolean;    // デフォルト表示として設定
   displayOrder: number;         // 表示順序
   customDescription?: string;   // カスタム説明文
   salesNote?: string;          // 販売メモ（内部用）
@@ -34,6 +33,7 @@ export interface LocalTokenSettings {
   maxSupply?: number;          // 最大発行数
   reservedSupply?: number;     // 運営予約分
   soldOutMessage?: string;     // 売り切れ時のメッセージ
+  maxPerWallet?: number;       // 1ウォレットあたりの最大ミント数
 }
 
 // 統合されたトークン情報

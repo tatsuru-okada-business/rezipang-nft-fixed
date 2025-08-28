@@ -13,11 +13,26 @@ export default function NewAdminPanel() {
   const account = useActiveAccount();
   const [isAdmin, setIsAdmin] = useState(false);
   const [tokens, setTokens] = useState<ManagedToken[]>([]);
+  const [defaultTokenId, setDefaultTokenId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedToken, setSelectedToken] = useState<ManagedToken | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+
+  // default-token APIを読み込む
+  useEffect(() => {
+    fetch('/api/default-token')
+      .then(res => res.json())
+      .then(data => {
+        if (data.token && data.token.tokenId !== undefined) {
+          setDefaultTokenId(data.token.tokenId);
+        }
+      })
+      .catch(() => {
+        // エラー時は何もしない（nullのまま）
+      });
+  }, []);
 
   useEffect(() => {
     if (account?.address) {
@@ -47,6 +62,11 @@ export default function NewAdminPanel() {
         });
         setTokens(data.tokens);
         setLastSync(new Date(data.lastSync));
+        
+        // default-token.jsonを読み込み
+        const defaultRes = await fetch('/default-token.json');
+        const defaultData = await defaultRes.json();
+        setDefaultTokenId(defaultData.tokenId || 0);
       }
     } catch (error) {
       console.error('Error syncing tokens:', error);
@@ -58,17 +78,15 @@ export default function NewAdminPanel() {
   const updateLocalSettings = async (tokenId: number, settings: any) => {
     setSaving(true);
     try {
-      // デフォルト表示の排他制御
+      // デフォルト表示の更新
       if (settings.isDefaultDisplay) {
-        // 他のトークンのデフォルト表示をオフにする
-        const updatedTokens = tokens.map(t => ({
-          ...t,
-          local: {
-            ...t.local,
-            isDefaultDisplay: t.thirdweb.tokenId === tokenId
-          }
-        }));
-        setTokens(updatedTokens);
+        // default-token.jsonに書き込む
+        await fetch('/api/default-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenId })
+        });
+        setDefaultTokenId(tokenId);
       }
       
       // Date オブジェクトをISO文字列に変換
@@ -305,7 +323,7 @@ export default function NewAdminPanel() {
                   </div>
                 )}
                 
-                {token.local.isDefaultDisplay && (
+                {token.thirdweb.tokenId === defaultTokenId && (
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-gray-400 text-sm">デフォルト表示:</span>
                     <span className="text-sm font-semibold text-blue-400">★</span>
@@ -412,28 +430,14 @@ export default function NewAdminPanel() {
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={selectedToken.local.isDefaultDisplay || false}
+                      checked={selectedToken.local.isDefaultDisplay || selectedToken.thirdweb.tokenId === defaultTokenId}
                       onChange={(e) => {
                         const newToken = { ...selectedToken };
                         newToken.local.isDefaultDisplay = e.target.checked;
                         setSelectedToken(newToken);
-                        
-                        // 他のトークンのデフォルトを解除
+                        // 即座にUIを更新
                         if (e.target.checked) {
-                          setTokens(prevTokens => 
-                            prevTokens.map(t => {
-                              if (t.thirdweb.tokenId !== selectedToken.thirdweb.tokenId) {
-                                return {
-                                  ...t,
-                                  local: {
-                                    ...t.local,
-                                    isDefaultDisplay: false
-                                  }
-                                };
-                              }
-                              return t;
-                            })
-                          );
+                          setDefaultTokenId(selectedToken.thirdweb.tokenId);
                         }
                       }}
                       className="rounded"
@@ -713,40 +717,58 @@ export default function NewAdminPanel() {
                         value={selectedToken.local.maxPerWallet || 10}
                         onChange={(e) => {
                           const newToken = { ...selectedToken };
-                          const inputValue = parseInt(e.target.value) || 1;
-                          const thirdwebLimit = selectedToken.thirdweb.maxPerWallet;
-                          const hasAllowlist = selectedToken.thirdweb.merkleRoot && selectedToken.thirdweb.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+                          const inputValue = parseInt(e.target.value);
                           
-                          // アローリスト設定時の警告
-                          if (hasAllowlist) {
-                            alert(`⚠️ このトークンはアローリストが設定されています。\n個別のウォレット制限はアローリストで管理されている可能性があります。\n制限を変更する場合は、Thirdwebのクレームコンディションを直接更新してください。`);
-                            return; // 変更を許可しない
+                          // 入力値の検証
+                          if (isNaN(inputValue) || inputValue < 0) {
+                            return;
                           }
                           
-                          // Thirdwebの制限と比較
-                          if (thirdwebLimit && inputValue > thirdwebLimit) {
-                            alert(`⚠️ Thirdwebのクレームコンディションで設定された制限（${thirdwebLimit}枚）を超えています。\n自動的に${thirdwebLimit}枚に調整されます。`);
-                            newToken.local.maxPerWallet = thirdwebLimit;
-                          } else {
-                            newToken.local.maxPerWallet = inputValue;
+                          // ClaimConditionからの制限を取得
+                          const claimConditionLimit = selectedToken.thirdweb.maxPerWallet;
+                          const maxAllowed = claimConditionLimit || 100; // ClaimConditionが未設定の場合は100
+                          
+                          // 0からmaxAllowedまでの範囲で制限
+                          let finalValue = inputValue;
+                          if (inputValue > maxAllowed) {
+                            finalValue = maxAllowed;
+                            // 警告メッセージを表示
+                            const warningMessage = claimConditionLimit
+                              ? `⚠️ ClaimConditionの制限（${claimConditionLimit}枚）を超えています。${claimConditionLimit}枚に調整されました。`
+                              : `⚠️ ClaimConditionが未設定のため、最大100枚までです。100枚に調整されました。`;
+                            
+                            // 警告を表示（一時的なトースト通知）
+                            const toast = document.createElement('div');
+                            toast.className = 'fixed top-20 right-4 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-500';
+                            toast.textContent = warningMessage;
+                            document.body.appendChild(toast);
+                            setTimeout(() => {
+                              toast.style.opacity = '0';
+                              setTimeout(() => toast.remove(), 500);
+                            }, 3000);
                           }
+                          
+                          newToken.local.maxPerWallet = finalValue;
                           setSelectedToken(newToken);
                         }}
                         className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                        min="1"
-                        max="9999"
-                        disabled={selectedToken.thirdweb.merkleRoot && selectedToken.thirdweb.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000'}
+                        min="0"
+                        max={selectedToken.thirdweb.maxPerWallet || 100}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        1つのウォレットがミントできる最大数（UI制限）
-                        {selectedToken.thirdweb.maxPerWallet && (
+                        1つのウォレットがミントできる最大数
+                        {selectedToken.thirdweb.maxPerWallet ? (
                           <span className="block text-yellow-400 mt-1">
-                            ※ Thirdweb制限: {selectedToken.thirdweb.maxPerWallet}枚
+                            ※ ClaimConditionの制限: 0〜{selectedToken.thirdweb.maxPerWallet}枚まで設定可
+                          </span>
+                        ) : (
+                          <span className="block text-gray-400 mt-1">
+                            ※ ClaimCondition未設定: 0〜100枚まで設定可
                           </span>
                         )}
-                        {selectedToken.thirdweb.merkleRoot && selectedToken.thirdweb.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+                        {selectedToken.local.maxPerWallet === 0 && (
                           <span className="block text-red-400 mt-1">
-                            ⚠️ アローリスト設定済み。Thirdwebで制限を管理してください。
+                            ⚠️ 0に設定するとミントできなくなります
                           </span>
                         )}
                       </p>

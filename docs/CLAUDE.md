@@ -1,6 +1,6 @@
 # CLAUDE.md - システム管理方針と仕様書
 
-最終更新: 2025-08-27
+最終更新: 2025-08-28
 
 ## 🔴 重要：汎用NFTミントサイトの管理方針
 
@@ -102,6 +102,8 @@ NEXT_PUBLIC_CHAIN_ID=137
   "defaultTokenId": 0,
   "tokens": {
     "0": {
+      "displayEnabled": true,
+      "displayOrder": 0,
       "salesPeriodEnabled": true,
       "salesStartDate": "2025-01-01T00:00:00Z",
       "salesEndDate": "2025-12-31T23:59:59Z",
@@ -111,7 +113,15 @@ NEXT_PUBLIC_CHAIN_ID=137
 }
 ```
 
-#### 4. project.config.js（デフォルト値のみ）
+#### 4. default-token.json（デフォルト表示設定）
+```json
+{
+  "tokenId": 0
+}
+```
+**注**: デフォルト表示の管理はこのファイルで一元化。`isDefaultDisplay`フラグは廃止。
+
+#### 5. project.config.js（デフォルト値のみ）
 ```javascript
 // ハードコーディング禁止 - デフォルト値のみ定義
 {
@@ -160,7 +170,7 @@ locales/
 | エンドポイント | 用途 | データソース |
 |------------|------|------------|
 | `/api/tokens` | トークン一覧 | admin-config.json |
-| `/api/default-token` | デフォルトトークン | local-settings → admin-config |
+| `/api/default-token` | デフォルトトークン | default-token.json → admin-config |
 | `/api/admin/sync-tokens` | Thirdweb同期 | Thirdweb API |
 | `/api/admin/project-settings` | プロジェクト設定 | project-settings.json |
 | `/api/verify-allowlist` | アローリスト | allowlist.csv |
@@ -309,6 +319,22 @@ NEXT_PUBLIC_ADMIN_ADDRESSES=0x...,0x...
 - `/api/admin/generate-favicon` - Favicon生成
 - キャッシュバスティング: `?t=timestamp` パラメータで無効化
 
+## 🔧 デフォルトトークン管理
+
+### default-token.json による一元管理
+- デフォルト表示するトークンは `default-token.json` ファイルで管理
+- `isDefaultDisplay` フラグは廃止し、ファイル参照に統一
+- 管理パネルで「デフォルト表示」を設定すると自動的に更新
+
+### 管理パネルの星マーク表示
+```typescript
+// default-token.jsonを読み込んで判定
+const defaultTokenId = await fetch('/default-token.json').json();
+if (token.tokenId === defaultTokenId) {
+  // 星マークを表示
+}
+```
+
 **最終更新**: 2025-08-28
-**バージョン**: 4.1.0
+**バージョン**: 4.2.0
 **管理者**: Claude AI Assistant

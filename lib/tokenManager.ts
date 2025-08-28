@@ -28,11 +28,18 @@ export function getValidDefaultTokenId(): number {
     console.warn(`Default token ID ${settings.defaultTokenId} does not exist. Finding alternative...`);
   }
   
-  // isDefaultDisplayがtrueのトークンを探す
-  const defaultDisplayToken = mergedTokens.find(t => t.isDefaultDisplay);
-  if (defaultDisplayToken) {
-    console.log(`Using token ${defaultDisplayToken.tokenId} with isDefaultDisplay flag`);
-    return defaultDisplayToken.tokenId;
+  // default-token.jsonから読み込む
+  try {
+    const defaultData = JSON.parse(readFileSync(DEFAULT_TOKEN_CACHE_PATH, 'utf-8'));
+    if (defaultData.tokenId !== undefined) {
+      const tokenExists = mergedTokens.some(t => t.tokenId === defaultData.tokenId);
+      if (tokenExists) {
+        console.log(`Using token ${defaultData.tokenId} from default-token.json`);
+        return defaultData.tokenId;
+      }
+    }
+  } catch (error) {
+    // File doesn't exist or is invalid
   }
   
   // 表示可能な最初のトークンを使用
@@ -75,23 +82,12 @@ export function setUnifiedDefaultToken(tokenId: number): void {
   // defaultTokenIdを更新
   settings.defaultTokenId = tokenId;
   
-  // isDefaultDisplayフラグを更新
-  Object.keys(settings.tokens).forEach(id => {
-    const token = settings.tokens[id];
-    if (token.isDefaultDisplay !== undefined) {
-      token.isDefaultDisplay = parseInt(id) === tokenId;
-    }
-  });
-  
   // tokenエントリがなければ作成
   if (!settings.tokens[tokenId.toString()]) {
     settings.tokens[tokenId.toString()] = {
       displayEnabled: true,
       displayOrder: tokenId,
-      isDefaultDisplay: true,
     };
-  } else {
-    settings.tokens[tokenId.toString()].isDefaultDisplay = true;
   }
   
   settings.lastUpdated = new Date().toISOString();
@@ -108,24 +104,7 @@ export function setUnifiedDefaultToken(tokenId: number): void {
     console.warn('Failed to update default-token.json cache:', error);
   }
   
-  // 3. admin-config.jsonのisDefaultDisplayフラグを更新
-  try {
-    if (existsSync(ADMIN_CONFIG_PATH)) {
-      const adminConfig = JSON.parse(readFileSync(ADMIN_CONFIG_PATH, 'utf-8'));
-      
-      // すべてのトークンのisDefaultDisplayをリセット
-      if (adminConfig.tokens && Array.isArray(adminConfig.tokens)) {
-        adminConfig.tokens.forEach((token: any) => {
-          if (token.local) {
-            token.local.isDefaultDisplay = token.thirdweb.tokenId === tokenId;
-          }
-        });
-        writeFileSync(ADMIN_CONFIG_PATH, JSON.stringify(adminConfig, null, 2));
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to update admin-config.json:', error);
-  }
+  // 3. admin-config.jsonは更新不要（isDefaultDisplayを使用しない）
   
   console.log(`Successfully set default token to ${tokenId} across all systems`);
 }

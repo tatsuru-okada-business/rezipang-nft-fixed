@@ -13,13 +13,26 @@ interface TokenGalleryProps {
   locale?: string;
 }
 
+// ギャラリーデータをコンポーネント外でキャッシュ
+let cachedTokens: TokenMetadata[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5分間キャッシュ
+
 export function TokenGallery({ onTokenSelect, selectedTokenId, locale = "en" }: TokenGalleryProps) {
-  const [tokens, setTokens] = useState<TokenMetadata[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tokens, setTokens] = useState<TokenMetadata[]>(cachedTokens || []);
+  const [loading, setLoading] = useState(!cachedTokens);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchTokens() {
+      // キャッシュが有効な場合は使用
+      const now = Date.now();
+      if (cachedTokens && (now - cacheTimestamp < CACHE_DURATION)) {
+        setTokens(cachedTokens);
+        setLoading(false);
+        return;
+      }
+
       try {
         // まず管理設定から表示可能なトークンを取得
         const settingsResponse = await fetch('/api/token-settings');
@@ -27,6 +40,8 @@ export function TokenGallery({ onTokenSelect, selectedTokenId, locale = "en" }: 
           const settingsData = await settingsResponse.json();
           if (settingsData.tokens && settingsData.tokens.length > 0) {
             // 管理設定のトークンを使用
+            cachedTokens = settingsData.tokens;
+            cacheTimestamp = now;
             setTokens(settingsData.tokens);
             setLoading(false);
             return;
@@ -46,6 +61,8 @@ export function TokenGallery({ onTokenSelect, selectedTokenId, locale = "en" }: 
           const hasGenericName = token.name?.match(/^Token #\d+$/);
           return supply > 0 && !hasGenericName;
         });
+        cachedTokens = tokensWithSupply;
+        cacheTimestamp = now;
         setTokens(tokensWithSupply);
       } catch (error) {
         console.error("Error fetching tokens:", error);
