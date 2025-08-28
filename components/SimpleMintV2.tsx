@@ -21,6 +21,8 @@ interface TokenConfig {
   currency: string;
   currencySymbol: string;
   currencyAddress?: string;
+  currencyDecimals?: number;
+  currencyIsNative?: boolean;
   maxSupply?: number;
   currentSupply?: number;
 }
@@ -55,10 +57,12 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
             tokenId: t.thirdweb.tokenId,
             name: t.thirdweb.name,
             description: t.thirdweb.description || '',
-            price: t.thirdweb.price || '0',
+            price: t.thirdweb.price || (t.local && t.local.customPrice) || '0',
             currency: t.thirdweb.currency || '0x0000000000000000000000000000000000000000',
             currencySymbol: t.thirdweb.currencySymbol || 'POL',
             currencyAddress: t.thirdweb.currency,
+            currencyDecimals: t.thirdweb.currencyDecimals || 18,
+            currencyIsNative: t.thirdweb.currencyIsNative !== false,
             maxSupply: t.local?.maxSupply,
             currentSupply: t.local?.currentSupply || 0
           }));
@@ -169,7 +173,7 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
         });
         
         // 価格計算（通貨に応じた小数点処理）
-        const decimals = tokenConfig.currencySymbol === 'USDC' ? 6 : 18;
+        const decimals = tokenConfig.currencyDecimals || 18;
         const totalPayment = BigInt(Math.floor(Number(tokenConfig.price) * quantity * Math.pow(10, decimals)));
         
         // 承認トランザクション
@@ -191,6 +195,7 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
       const value = isERC20 ? BigInt(0) : toWei((Number(tokenConfig.price) * quantity).toString());
       
       // シンプルなclaim関数を使用
+      const pricePerToken = BigInt(Math.floor(Number(tokenConfig.price) * Math.pow(10, tokenConfig.currencyDecimals || 18)));
       const mintTx = prepareContractCall({
         contract,
         method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
@@ -199,7 +204,7 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
           BigInt(tokenId),
           BigInt(quantity),
           tokenConfig.currencyAddress || "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-          BigInt(Math.floor(Number(tokenConfig.price) * 1e18)), // Wei単位
+          pricePerToken,
           [], // Merkle Proofは使用しない
           "0x"
         ],

@@ -1,0 +1,59 @@
+{
+  "currencies": [
+    {
+      "symbol": "POL",
+      "name": "Polygon",
+      "address": "0x0000000000000000000000000000000000000000",
+      "decimals": 18,
+      "isNative": true,
+      "chainId": 137,
+      "description": "Polygon Native Token"
+    },
+    {
+      "symbol": "MATIC",
+      "name": "Polygon (Legacy)",
+      "address": "0x0000000000000000000000000000000000000000",
+      "decimals": 18,
+      "isNative": true,
+      "chainId": 137,
+      "description": "Polygon Native Token (Legacy name)"
+    },
+    {
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "address": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+      "decimals": 6,
+      "isNative": false,
+      "chainId": 137,
+      "description": "USDC on Polygon"
+    },
+    {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "address": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+      "decimals": 6,
+      "isNative": false,
+      "chainId": 137,
+      "description": "USDT on Polygon"
+    },
+    {
+      "symbol": "ZENY",
+      "name": "ZENY Token",
+      "address": "0x7B2d2732dcCC1830AA63241dC13649b7861d9b54",
+      "decimals": 18,
+      "isNative": false,
+      "chainId": 137,
+      "description": "ZENY Token on Polygon"
+    },
+    {
+      "symbol": "WETH",
+      "name": "Wrapped Ether",
+      "address": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+      "decimals": 18,
+      "isNative": false,
+      "chainId": 137,
+      "description": "Wrapped ETH on Polygon"
+    }
+  ],
+  "defaultCurrency": "POL"
+}

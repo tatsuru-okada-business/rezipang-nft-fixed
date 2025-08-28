@@ -465,31 +465,61 @@ export default function NewAdminPanel() {
                   />
                 </div>
 
-                {/* 価格設定 */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    カスタム価格（Thirdwebで価格が設定されていない場合に使用）
-                  </label>
-                  <div className="flex items-center space-x-2">
+                {/* 価格と通貨設定 */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">
+                      価格
+                    </label>
                     <input
                       type="number"
                       step="0.001"
-                      value={selectedToken.local.customPrice || ''}
+                      value={selectedToken.local.customPrice || selectedToken.thirdweb.price || ''}
                       onChange={(e) => {
                         const newToken = { ...selectedToken };
                         newToken.local.customPrice = e.target.value;
+                        if (!newToken.thirdweb) newToken.thirdweb = {};
+                        newToken.thirdweb.price = e.target.value;
                         setSelectedToken(newToken);
                       }}
                       placeholder="例: 1"
-                      className="flex-1 px-3 py-2 bg-gray-700 text-white rounded"
+                      className="w-full px-3 py-2 bg-gray-700 text-white rounded"
                     />
-                    <span className="text-gray-400">
-                      {selectedToken.thirdweb.currency || 'POL'}
-                    </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Thirdwebのクレーム条件で価格が設定されていない場合、この価格が使用されます
-                  </p>
+                  
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">
+                      通貨
+                    </label>
+                    <select
+                      value={selectedToken.thirdweb.currencySymbol || selectedToken.thirdweb.currency || 'POL'}
+                      onChange={async (e) => {
+                        const symbol = e.target.value;
+                        // 通貨設定を取得
+                        const response = await fetch('/api/admin/currency-config');
+                        const config = await response.json();
+                        const currency = config.currencies.find((c: any) => c.symbol === symbol);
+                        
+                        const newToken = { ...selectedToken };
+                        if (!newToken.thirdweb) newToken.thirdweb = {};
+                        newToken.thirdweb.currencySymbol = symbol;
+                        newToken.thirdweb.currency = currency?.address || '0x0000000000000000000000000000000000000000';
+                        newToken.thirdweb.currencyDecimals = currency?.decimals || 18;
+                        newToken.thirdweb.currencyIsNative = currency?.isNative || false;
+                        setSelectedToken(newToken);
+                      }}
+                      className="w-full px-3 py-2 bg-gray-700 text-white rounded"
+                    >
+                      <option value="POL">POL (Native)</option>
+                      <option value="USDC">USDC</option>
+                      <option value="USDT">USDT</option>
+                      <option value="ZENY">ZENY</option>
+                      <option value="WETH">WETH</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      選択した通貨でNFTを販売します
+                    </p>
+                  </div>
                 </div>
 
                 {/* 販売期間設定 */}

@@ -10,7 +10,11 @@ export interface ThirdwebTokenInfo {
   image?: string; // NFT画像URL
   description?: string; // NFT説明文
   currentPrice?: string;
-  currency?: string;
+  price?: string; // 価格
+  currency?: string; // 通貨アドレス
+  currencySymbol?: string; // 通貨シンボル（POL, USDC等）
+  currencyDecimals?: number; // 通貨の小数点桁数
+  currencyIsNative?: boolean; // ネイティブトークンかどうか
   maxPerWallet?: number;
   merkleRoot?: string;
   claimConditionActive: boolean;
