@@ -233,24 +233,29 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             });
 
             // ClaimConditionが設定されているかチェック
+            // 注意: ClaimConditionが設定されていない場合でも、ミントを許可する
             const startTimestamp = claimCondition[0];
             if (startTimestamp && Number(startTimestamp) > 0) {
               setClaimConditionValid(true);
               console.log('✅ ClaimConditionが有効です');
             } else {
-              setClaimConditionValid(false);
-              console.log('❌ ClaimConditionが設定されていません');
+              // ClaimConditionが設定されていない場合も、ミントを試みることを許可
+              setClaimConditionValid(true);
+              console.log('⚠️ ClaimConditionが設定されていませんが、ミントを試みます');
             }
           } catch (error) {
             console.error('ClaimCondition取得エラー:', error);
-            setClaimConditionValid(false);
+            // エラーが発生してもミントを試みることを許可
+            setClaimConditionValid(true);
+            console.log('⚠️ ClaimCondition取得エラーが発生しましたが、ミントを試みます');
           }
         }
       } catch (error) {
         console.error('アローリストチェックエラー:', error);
         setIsAllowlisted(false);
         setMaxMintAmount(1);
-        setClaimConditionValid(false);
+        // エラーが発生してもミントを試みることを許可
+        setClaimConditionValid(true);
       } finally {
         setClaimConditionChecking(false);
         console.log('===== チェック完了 =====');
@@ -1820,14 +1825,12 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                 disabled={
                   quantity <= 0 || 
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
-                  claimConditionChecking  // ClaimCondition確認中は非活性
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
                 }
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
                   quantity <= 0 || 
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
-                  claimConditionChecking
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'quantity-button hover:opacity-80'
                 }`}
@@ -1855,8 +1858,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                   quantity >= maxMintAmount ||
                   (maxSupply && currentSupply + quantity >= maxSupply - reservedSupply) || // 在庫上限に達した場合（運営予約分を除く）
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
-                  claimConditionChecking  // ClaimCondition確認中は非活性
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
                 }
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
                   !isAllowlisted || 
@@ -1864,8 +1866,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                   quantity >= maxMintAmount ||
                   (maxSupply && currentSupply + quantity >= maxSupply - reservedSupply) ||
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
-                  claimConditionChecking
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'quantity-button hover:opacity-80'
                 }`}
