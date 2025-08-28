@@ -179,7 +179,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         }
       }
     } catch (error) {
-      console.error("Error fetching token info:", error);
+      // console.error("Error fetching token info:", error);
       setTokenName("");
     }
   }, [tokenId]);
@@ -210,7 +210,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         setCurrentSupply(data.config.totalMinted || 0);
       }
     } catch (error) {
-      console.error('Error fetching supply info:', error);
+      // console.error('Error fetching supply info:', error);
     }
   }, [tokenId, locale, mintSuccess]);
 
@@ -591,7 +591,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             },
           });
         }).catch((error: any) => {
-          console.error("承認チェックエラー:", error);
+          // console.error("承認チェックエラー:", error);
           setTxProgress({ ...txProgress, isProcessing: false });
           setMintError(locale === "ja" 
             ? "トークン承認の準備に失敗しました" 
@@ -666,7 +666,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           return;
         }
       } catch (error) {
-        console.error("❌ Error checking claim condition:", error);
+        // console.error("❌ Error checking claim condition:", error);
         console.warn("This is likely why minting is failing - no claim conditions are set on the contract!");
         setMintError(
           locale === "ja" 
@@ -719,7 +719,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           });
           return;
         } catch (claimError: any) {
-          console.error("claimTo failed:", claimError);
+          // console.error("claimTo failed:", claimError);
         }
       } else {
         console.log("Test environment detected - skipping claimTo, using direct claim");
@@ -874,7 +874,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           
         } catch (error: any) {
           lastError = error;
-          console.error(`Method ${attempt.name} failed:`, error?.message || error);
+          // console.error(`Method ${attempt.name} failed:`, error?.message || error);
           
           // エラーメッセージを解析
           const errorMessage = error?.message || error?.toString() || "";
@@ -895,9 +895,9 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
 
       // すべての方法が失敗した場合
       const errorDetails = lastError?.message || "Unknown error";
-      console.error("❌ Mint failed with all methods");
-      console.error("Attempted methods:", attemptedMethods);
-      console.error("Last error:", errorDetails);
+      // console.error("❌ Mint failed with all methods");
+      // console.error("Attempted methods:", attemptedMethods);
+      // console.error("Last error:", errorDetails);
       
       // エラーメッセージをより詳細に
       let detailedError = "";
