@@ -11,7 +11,6 @@ function createDefaultLocalSettings(tokenId: number): LocalTokenSettings {
   return {
     tokenId,
     displayEnabled: true,
-    isDefaultDisplay: false,
     displayOrder: tokenId,
     salesPeriodEnabled: false,
     isUnlimited: true,
@@ -37,7 +36,6 @@ export function loadLocalSettings(): Map<number, LocalTokenSettings> {
             tokenId,
             displayEnabled: tokenSettings.displayEnabled ?? true,
             displayOrder: tokenSettings.displayOrder ?? tokenId,
-            isDefaultDisplay: tokenSettings.isDefaultDisplay ?? false,
             salesPeriodEnabled: tokenSettings.salesPeriodEnabled ?? false,
             salesStartDate: tokenSettings.salesStartDate ? new Date(tokenSettings.salesStartDate) : undefined,
             salesEndDate: tokenSettings.salesEndDate ? new Date(tokenSettings.salesEndDate) : undefined,
@@ -99,7 +97,6 @@ export function saveLocalSettings(tokens: ManagedToken[]): void {
       localSettings.tokens[token.local.tokenId] = {
         displayEnabled: token.local.displayEnabled,
         displayOrder: token.local.displayOrder,
-        isDefaultDisplay: token.local.isDefaultDisplay,
         salesPeriodEnabled: token.local.salesPeriodEnabled,
         salesStartDate: token.local.salesStartDate,
         salesEndDate: token.local.salesEndDate,

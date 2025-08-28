@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddressAllowlisted, getAllowlistEntry } from "@/lib/allowlist";
 import { checkAllowlistStatus } from "@/lib/thirdwebAllowlist";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +15,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // ローカル設定から最大ミント数を取得
+    let localMaxPerWallet: number | undefined;
+    try {
+      const localSettingsPath = join(process.cwd(), 'local-settings.json');
+      const localSettings = JSON.parse(readFileSync(localSettingsPath, 'utf-8'));
+      if (localSettings.tokens && localSettings.tokens[tokenId]) {
+        localMaxPerWallet = localSettings.tokens[tokenId].maxPerWallet;
+      }
+    } catch (error) {
+      console.log('Could not read local settings:', error);
+    }
+
     // まずThirdwebのClaim Conditionをチェック
     const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
     if (contractAddress) {
@@ -26,10 +40,16 @@ export async function POST(request: NextRequest) {
         // Merkle Rootが設定されていない場合（パブリックセール）
         if (!thirdwebStatus.hasMerkleRoot) {
           console.log("No merkle root - public sale, everyone allowed");
+          // ローカル設定が優先、なければThirdweb設定、それもなければ100
+          const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
+                                        (thirdwebStatus.maxMintAmount || 100);
           return NextResponse.json({
             address,
             isAllowlisted: true,
-            maxMintAmount: thirdwebStatus.maxMintAmount || 100,
+            maxMintAmount: effectiveMaxPerWallet,
+            maxPerWallet: effectiveMaxPerWallet,
+            thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
+            localMaxPerWallet: localMaxPerWallet,
             userMinted: thirdwebStatus.userMinted || 0,
             source: "thirdweb-public"
           }, {
@@ -51,10 +71,15 @@ export async function POST(request: NextRequest) {
             
             if (isInCSV && csvEntry) {
               console.log("Address found in CSV allowlist");
+              const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
+                                            (csvEntry.maxMintAmount || thirdwebStatus.maxMintAmount || 1);
               return NextResponse.json({
                 address,
                 isAllowlisted: true,
-                maxMintAmount: csvEntry.maxMintAmount || thirdwebStatus.maxMintAmount || 1,
+                maxMintAmount: effectiveMaxPerWallet,
+                maxPerWallet: effectiveMaxPerWallet,
+                thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
+                localMaxPerWallet: localMaxPerWallet,
                 userMinted: thirdwebStatus.userMinted || 0,
                 source: "csv-test-mode"
               }, {
@@ -68,6 +93,9 @@ export async function POST(request: NextRequest) {
                 address,
                 isAllowlisted: false,
                 maxMintAmount: 0,
+                maxPerWallet: 0,
+                thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
+                localMaxPerWallet: localMaxPerWallet,
                 userMinted: thirdwebStatus.userMinted || 0,
                 source: "not-in-csv-test-mode"
               }, {
@@ -80,10 +108,15 @@ export async function POST(request: NextRequest) {
           
           // 本番環境の場合（SDK v5 が自動で Merkle Proof を処理）
           console.log("Production mode: SDK v5 will handle Merkle Proof");
+          const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
+                                        (thirdwebStatus.maxMintAmount || 1);
           return NextResponse.json({
             address,
             isAllowlisted: true, // SDK v5 が自動処理
-            maxMintAmount: thirdwebStatus.maxMintAmount || 1,
+            maxMintAmount: effectiveMaxPerWallet,
+            maxPerWallet: effectiveMaxPerWallet,
+            thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
+            localMaxPerWallet: localMaxPerWallet,
             userMinted: thirdwebStatus.userMinted || 0,
             source: "thirdweb-merkle"
           }, {
@@ -94,10 +127,15 @@ export async function POST(request: NextRequest) {
         }
         
         // Thirdwebの結果を返す
+        const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
+                                      thirdwebStatus.maxMintAmount;
         return NextResponse.json({
           address,
           isAllowlisted: thirdwebStatus.isAllowlisted,
-          maxMintAmount: thirdwebStatus.maxMintAmount,
+          maxMintAmount: effectiveMaxPerWallet,
+          maxPerWallet: effectiveMaxPerWallet,
+          thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
+          localMaxPerWallet: localMaxPerWallet,
           userMinted: thirdwebStatus.userMinted || 0,
           source: "thirdweb"
         }, {
@@ -115,11 +153,16 @@ export async function POST(request: NextRequest) {
     // CSVアローリストのみチェック（フォールバック）
     const isAllowlisted = isAddressAllowlisted(address);
     const allowlistEntry = getAllowlistEntry(address);
+    const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
+                                  (allowlistEntry?.maxMintAmount || 0);
     
     return NextResponse.json({
       address,
       isAllowlisted,
-      maxMintAmount: allowlistEntry?.maxMintAmount || 0,
+      maxMintAmount: effectiveMaxPerWallet,
+      maxPerWallet: effectiveMaxPerWallet,
+      thirdwebMaxPerWallet: undefined,
+      localMaxPerWallet: localMaxPerWallet,
       userMinted: 0,
       source: "csv"
     }, {

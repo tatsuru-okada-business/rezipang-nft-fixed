@@ -1,18 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getMergedTokenConfigs } from '@/lib/localSettings';
 import { isInSalesPeriod } from '@/lib/formatPrice';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 export async function GET(req: Request) {
   try {
-    // local-settings.jsonからdefaultTokenIdを取得
-    const localSettingsPath = join(process.cwd(), 'local-settings.json');
+    // default-token.jsonからdefaultTokenIdを取得（優先）
+    const defaultTokenPath = join(process.cwd(), 'default-token.json');
     let defaultTokenId = 0;
     
-    if (existsSync(localSettingsPath)) {
-      const localSettings = JSON.parse(readFileSync(localSettingsPath, 'utf-8'));
-      defaultTokenId = localSettings.defaultTokenId ?? 0;
+    if (existsSync(defaultTokenPath)) {
+      const defaultTokenData = JSON.parse(readFileSync(defaultTokenPath, 'utf-8'));
+      defaultTokenId = defaultTokenData.tokenId ?? 0;
+    } else {
+      // default-token.jsonがない場合のみlocal-settings.jsonから取得
+      const localSettingsPath = join(process.cwd(), 'local-settings.json');
+      if (existsSync(localSettingsPath)) {
+        const localSettings = JSON.parse(readFileSync(localSettingsPath, 'utf-8'));
+        defaultTokenId = localSettings.defaultTokenId ?? 0;
+      }
     }
     
     const mergedTokens = getMergedTokenConfigs();
@@ -54,6 +61,32 @@ export async function GET(req: Request) {
     console.error('Error loading default token:', error);
     return NextResponse.json(
       { error: 'Failed to load default token' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { tokenId } = body;
+    
+    if (tokenId === undefined || tokenId === null) {
+      return NextResponse.json(
+        { error: 'tokenId is required' },
+        { status: 400 }
+      );
+    }
+    
+    // default-token.jsonを更新
+    const defaultTokenPath = join(process.cwd(), 'default-token.json');
+    writeFileSync(defaultTokenPath, JSON.stringify({ tokenId }, null, 2));
+    
+    return NextResponse.json({ success: true, tokenId });
+  } catch (error) {
+    console.error('Error updating default token:', error);
+    return NextResponse.json(
+      { error: 'Failed to update default token' },
       { status: 500 }
     );
   }

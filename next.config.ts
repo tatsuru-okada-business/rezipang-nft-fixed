@@ -38,6 +38,28 @@ const nextConfig: NextConfig = {
     optimizeCss: true, // CSS最適化
   },
   
+  // Webpack設定
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // チャンクサイズの制限を増やす
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            thirdweb: {
+              test: /[\\/]node_modules[\\/](thirdweb|@thirdweb-dev)[\\/]/,
+              name: 'thirdweb',
+              priority: 10,
+              reuseExistingChunk: true,
+            },
+          },
+        },
+      };
+    }
+    return config;
+  },
+  
   eslint: {
     ignoreDuringBuilds: true,
   },
