@@ -170,12 +170,12 @@ export function TokenGallery({ onTokenSelect, selectedTokenId, locale = "en" }: 
               {inSalesPeriod ? (
                 token.price && token.price !== "0" && (
                   <p className="text-sm font-bold text-purple-600 mt-1">
-                    {formatPrice(token.price, token.currency || "ZENY")} {token.currency || "ZENY"}
+                    {formatPrice(token.price, token.currency)} {token.currency}
                   </p>
                 )
               ) : (
                 <p className="text-sm font-bold text-gray-400 mt-1">
-                  - {token.currency || "ZENY"}
+                  - {token.currency}
                 </p>
               )}
             </div>
