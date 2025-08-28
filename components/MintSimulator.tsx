@@ -76,8 +76,8 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
         if (result) {
           mintPrice = (Number(result.toString()) / 10 ** 18).toFixed(4);
           output += isJapanese
-            ? `✅ 価格: ${mintPrice} ${chain.id === 137 ? 'MATIC' : 'ETH'}\n`
-            : `✅ Price: ${mintPrice} ${chain.id === 137 ? 'MATIC' : 'ETH'}\n`;
+            ? `✅ 価格: ${mintPrice} ${chain.id === 137 ? 'POL' : 'ETH'}\n`
+            : `✅ Price: ${mintPrice} ${chain.id === 137 ? 'POL' : 'ETH'}\n`;
           break;
         }
       } catch (e) {
@@ -159,8 +159,8 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
           output += isJapanese ? `  → 関数が存在: ✅\n` : `  → Function exists: ✅\n`;
           output += isJapanese ? `  → パラメータ有効: ✅\n` : `  → Parameters valid: ✅\n`;
           output += isJapanese
-            ? `  → 価格: ${mintPrice} ${chain.id === 137 ? 'MATIC' : 'ETH'}\n`
-            : `  → Value: ${mintPrice} ${chain.id === 137 ? 'MATIC' : 'ETH'}\n`;
+            ? `  → 価格: ${mintPrice} ${chain.id === 137 ? 'POL' : 'ETH'}\n`
+            : `  → Value: ${mintPrice} ${chain.id === 137 ? 'POL' : 'ETH'}\n`;
           
           // 実際のシミュレーション（利用可能な場合）
           // const simulation = await simulateTransaction({ transaction });
@@ -185,8 +185,8 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
     if (simulationSuccess) {
       output += isJapanese ? `✅ ミント準備完了！\n` : `✅ READY TO MINT!\n`;
       output += isJapanese
-        ? `予想コスト: ${mintPrice} ${chain.id === 137 ? 'MATIC' : 'ETH'} + ガス代\n`
-        : `Expected cost: ${mintPrice} ${chain.id === 137 ? 'MATIC' : 'ETH'} + gas fees\n`;
+        ? `予想コスト: ${mintPrice} ${chain.id === 137 ? 'POL' : 'ETH'} + ガス代\n`
+        : `Expected cost: ${mintPrice} ${chain.id === 137 ? 'POL' : 'ETH'} + gas fees\n`;
     } else {
       output += isJapanese ? `⚠️ ミントが失敗する可能性があります\n` : `⚠️ MINT MAY FAIL\n`;
       output += isJapanese ? `考えられる問題:\n` : `Possible issues:\n`;
@@ -200,12 +200,12 @@ export function MintSimulator({ locale = "en" }: MintSimulatorProps) {
     output += isJapanese ? "\n6️⃣ 推奨アクション:\n" : "\n6️⃣ RECOMMENDED ACTIONS:\n";
     if (Number(mintPrice) > 0) {
       output += isJapanese
-        ? `1. 最低 ${(Number(mintPrice) * 1.2).toFixed(4)} ${chain.id === 137 ? 'MATIC' : 'ETH'} を確保（価格+ガス代）\n`
-        : `1. Ensure you have at least ${(Number(mintPrice) * 1.2).toFixed(4)} ${chain.id === 137 ? 'MATIC' : 'ETH'} (price + gas)\n`;
+        ? `1. 最低 ${(Number(mintPrice) * 1.2).toFixed(4)} ${chain.id === 137 ? 'POL' : 'ETH'} を確保（価格+ガス代）\n`
+        : `1. Ensure you have at least ${(Number(mintPrice) * 1.2).toFixed(4)} ${chain.id === 137 ? 'POL' : 'ETH'} (price + gas)\n`;
     } else {
       output += isJapanese
-        ? `1. ガス代を確保（0.01+ ${chain.id === 137 ? 'MATIC' : 'ETH'}）\n`
-        : `1. Ensure you have gas fees (0.01+ ${chain.id === 137 ? 'MATIC' : 'ETH'})\n`;
+        ? `1. ガス代を確保（0.01+ ${chain.id === 137 ? 'POL' : 'ETH'}）\n`
+        : `1. Ensure you have gas fees (0.01+ ${chain.id === 137 ? 'POL' : 'ETH'})\n`;
     }
     output += isJapanese
       ? `2. 正しいネットワーク（${chain.name}）にいることを確認\n`

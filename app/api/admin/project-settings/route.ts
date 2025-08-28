@@ -6,8 +6,8 @@ const PROJECT_CONFIG_PATH = join(process.cwd(), 'project-settings.json');
 
 // デフォルト設定
 const DEFAULT_SETTINGS = {
-  projectName: "ReZipang NFT",
-  projectDescription: "ReZipang NFT Minting Site",
+  projectName: "NFT Minting Site",
+  projectDescription: "NFT Minting Platform",
   features: {
     showTokenGallery: true,
     showPriceChecker: false,
@@ -17,8 +17,8 @@ const DEFAULT_SETTINGS = {
   },
   ui: {
     theme: {
-      primary: "purple",
-      secondary: "blue",
+      backgroundColor: "#E0E7FF",
+      textColor: "#7C3AED",
     },
   },
   localization: {
@@ -38,29 +38,7 @@ export async function GET() {
       settings = { ...DEFAULT_SETTINGS, ...JSON.parse(content) };
     }
     
-    // admin-config.jsonから支払い情報を取得
-    const adminConfigPath = join(process.cwd(), 'admin-config.json');
-    let paymentInfo = null;
-    
-    if (existsSync(adminConfigPath)) {
-      const adminConfig = JSON.parse(readFileSync(adminConfigPath, 'utf-8'));
-      if (adminConfig.tokens && adminConfig.tokens.length > 0) {
-        const defaultToken = adminConfig.tokens[0];
-        paymentInfo = {
-          currency: defaultToken.thirdweb.currency,
-          price: defaultToken.thirdweb.currentPrice,
-          tokenAddress: defaultToken.thirdweb.currency === 'ZENY' 
-            ? '0x7B2d2732dcCC1830AA63241dC13649b7861d9b54' 
-            : null,
-        };
-      }
-    }
-    
-    return NextResponse.json({
-      ...settings,
-      payment: paymentInfo,
-      source: 'ClaimCondition',
-    });
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('Error loading project settings:', error);
     return NextResponse.json(DEFAULT_SETTINGS);
@@ -72,23 +50,44 @@ export async function POST(req: Request) {
   try {
     const settings = await req.json();
     
-    // 支払い情報以外の設定を保存
-    const { payment, ...settingsToSave } = settings;
+    // 支払い情報とsource以外のすべての設定を保存
+    const { payment, source, ...settingsToSave } = settings;
     
+    // 既存の設定を読み込んでマージ
+    let existingSettings = {};
+    if (existsSync(PROJECT_CONFIG_PATH)) {
+      const content = readFileSync(PROJECT_CONFIG_PATH, 'utf-8');
+      existingSettings = JSON.parse(content);
+    }
+    
+    // 新しい設定とマージ
+    const finalSettings = {
+      ...existingSettings,
+      ...settingsToSave,
+      projectName: settings.projectName,
+      projectDescription: settings.projectDescription,
+      features: settings.features,
+      ui: settings.ui,
+      localization: settings.localization,
+    };
+    
+    // ファイルに保存
     writeFileSync(
       PROJECT_CONFIG_PATH, 
-      JSON.stringify(settingsToSave, null, 2)
+      JSON.stringify(finalSettings, null, 2)
     );
+    
+    console.log('Saved settings:', finalSettings);
     
     return NextResponse.json({
       success: true,
       message: 'Settings saved successfully',
-      settings: settingsToSave,
+      settings: finalSettings,
     });
   } catch (error) {
     console.error('Error saving project settings:', error);
     return NextResponse.json(
-      { error: 'Failed to save settings' },
+      { error: 'Failed to save settings', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

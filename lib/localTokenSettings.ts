@@ -79,7 +79,7 @@ export function saveLocalSettings(tokens: ManagedToken[]): void {
     
     // local-settings.jsonに保存（ローカル設定）
     const localSettings: any = {
-      defaultTokenId: 2, // デフォルト値、必要に応じて更新
+      defaultTokenId: 0, // デフォルト値は0番
       tokens: {},
       lastUpdated: new Date().toISOString(),
     };
@@ -88,7 +88,7 @@ export function saveLocalSettings(tokens: ManagedToken[]): void {
     if (existsSync(LOCAL_SETTINGS_PATH)) {
       try {
         const existing = JSON.parse(readFileSync(LOCAL_SETTINGS_PATH, 'utf-8'));
-        localSettings.defaultTokenId = existing.defaultTokenId || 2;
+        localSettings.defaultTokenId = existing.defaultTokenId !== undefined ? existing.defaultTokenId : 0;
       } catch (error) {
         console.error('Error reading existing local settings:', error);
       }
@@ -124,10 +124,28 @@ export function mergeTokenData(
     const localSetting = localSettings.get(thirdwebToken.tokenId) || 
                         createDefaultLocalSettings(thirdwebToken.tokenId);
     
+    // maxPerWallet調整ロジック
+    let adjustedMaxPerWallet = localSetting.maxPerWallet;
+    const hasAllowlist = thirdwebToken.merkleRoot && 
+                        thirdwebToken.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+    
+    if (hasAllowlist) {
+      // アローリスト設定時はThirdwebの値を使用（ローカル設定を無視）
+      console.log(`Token ${thirdwebToken.tokenId}: アローリスト設定のため、maxPerWalletをThirdweb値（${thirdwebToken.maxPerWallet}）に設定`);
+      adjustedMaxPerWallet = undefined; // undefinedにしてThirdweb値を使用
+    } else if (adjustedMaxPerWallet !== undefined && 
+               thirdwebToken.maxPerWallet && 
+               adjustedMaxPerWallet > thirdwebToken.maxPerWallet) {
+      // ローカル設定がThirdweb制限を超えている場合は調整
+      console.log(`Token ${thirdwebToken.tokenId}: maxPerWallet調整 ${adjustedMaxPerWallet} → ${thirdwebToken.maxPerWallet}`);
+      adjustedMaxPerWallet = thirdwebToken.maxPerWallet;
+    }
+    
     return {
       thirdweb: thirdwebToken,
       local: {
         ...localSetting,
+        maxPerWallet: adjustedMaxPerWallet,
         lastSyncTime: new Date(),
       },
     };

@@ -93,8 +93,8 @@ export function PriceChecker({ locale = "en" }: PriceCheckerProps) {
           if (condition.pricePerToken) {
             const priceInEther = (Number(condition.pricePerToken.toString()) / 10 ** 18).toFixed(6);
             output += isJapanese 
-              ? `   → 価格: ${priceInEther} ${chain.id === 137 ? 'MATIC' : 'ETH'}\n`
-              : `   → Price: ${priceInEther} ${chain.id === 137 ? 'MATIC' : 'ETH'}\n`;
+              ? `   → 価格: ${priceInEther} ${chain.id === 137 ? 'POL' : 'ETH'}\n`
+              : `   → Price: ${priceInEther} ${chain.id === 137 ? 'POL' : 'ETH'}\n`;
           }
         }
       } catch (e: unknown) {
@@ -112,7 +112,7 @@ export function PriceChecker({ locale = "en" }: PriceCheckerProps) {
         });
         const priceWei = result?.toString() || "0";
         const priceEther = (Number(priceWei) / 10 ** 18).toFixed(6);
-        output += `✅ ${func.name}: ${priceWei} wei (${priceEther} ${chain.id === 137 ? 'MATIC' : 'ETH'})\n`;
+        output += `✅ ${func.name}: ${priceWei} wei (${priceEther} ${chain.id === 137 ? 'POL' : 'ETH'})\n`;
       } catch (e: unknown) {
         output += isJapanese ? `❌ ${func.name}: 見つかりません\n` : `❌ ${func.name}: Not found\n`;
       }

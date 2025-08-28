@@ -33,6 +33,11 @@ export async function GET(request: Request) {
             salesStartDate: targetToken.salesStartDate,
             salesEndDate: targetToken.salesEndDate,
             isUnlimited: targetToken.isUnlimited,
+            maxSupply: targetToken.maxSupply,
+            reservedSupply: targetToken.reservedSupply,
+            soldOutMessage: targetToken.soldOutMessage,
+            maxPerWallet: targetToken.maxPerWallet,
+            totalMinted: targetToken.totalMinted,
             attributes: []
           }];
           return NextResponse.json({ tokens }, {

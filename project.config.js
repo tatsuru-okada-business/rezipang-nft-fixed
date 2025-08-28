@@ -31,8 +31,8 @@ const projectConfig = {
   ui: {
     // カラーテーマ
     theme: {
-      primary: "purple",    // purple, blue, green, red, etc.
-      secondary: "blue",
+      backgroundColor: "#E0E7FF",    // サイト全体の背景色
+      textColor: "#7C3AED",          // メインの文字色
     },
     // ロゴやブランディング
     branding: {

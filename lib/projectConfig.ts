@@ -16,12 +16,16 @@ export interface ProjectConfig {
   };
   ui: {
     theme: {
-      primary: string;
-      secondary: string;
+      backgroundColor: string;
+      textColor: string;
     };
     branding: {
       showLogo: boolean;
       logoUrl: string;
+    };
+    textOutline?: {
+      enabled: boolean;
+      color: string;
     };
   };
   localization: {
@@ -95,10 +99,48 @@ export async function getProjectConfigAsync(): Promise<ProjectConfig> {
   return projectConfigDefault;
 }
 
-// 同期版（デフォルト設定のみ）
+// 同期版（サーバーサイドでproject-settings.jsonを読み込む）
 export function getProjectConfig(): ProjectConfig {
-  // クライアントサイドではデフォルト設定を返す
-  // 実際の設定はuseEffectなどで非同期に取得
+  // サーバーサイドの場合、project-settings.jsonを直接読み込む
+  if (typeof window === 'undefined') {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const settingsPath = path.join(process.cwd(), 'project-settings.json');
+      if (fs.existsSync(settingsPath)) {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        
+        // 管理パネル設定とデフォルト設定をマージ
+        return {
+          ...projectConfigDefault,
+          projectName: settings.projectName || projectConfigDefault.projectName,
+          projectDescription: settings.projectDescription || projectConfigDefault.projectDescription,
+          features: {
+            ...projectConfigDefault.features,
+            ...settings.features,
+          },
+          ui: {
+            ...projectConfigDefault.ui,
+            ...settings.ui,
+          },
+          localization: {
+            ...projectConfigDefault.localization,
+            ...settings.localization,
+          },
+          metadata: {
+            title: settings.projectName || projectConfigDefault.metadata.title,
+            description: settings.projectDescription || projectConfigDefault.metadata.description,
+            keywords: projectConfigDefault.metadata.keywords,
+            ogImage: projectConfigDefault.metadata.ogImage,
+          }
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load project-settings.json:', error);
+    }
+  }
+  
+  // クライアントサイドではキャッシュまたはデフォルト設定を返す
   return cachedSettings || projectConfigDefault;
 }
 

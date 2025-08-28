@@ -1,0 +1,28 @@
+{
+  "projectName": "ReZipang NFT",
+  "projectDescription": "ReZipang NFT Minting Site",
+  "features": {
+    "showTokenGallery": true,
+    "showPriceChecker": false,
+    "showMintSimulator": false,
+    "showDebugInfo": false,
+    "maxMintPerWallet": true
+  },
+  "ui": {
+    "theme": {
+      "backgroundColor": "#A78BFA",
+      "textColor": "#1E40AF"
+    },
+    "textOutline": {
+      "enabled": false,
+      "color": "#ffffff"
+    }
+  },
+  "localization": {
+    "defaultLocale": "ja",
+    "availableLocales": [
+      "ja",
+      "en"
+    ]
+  }
+}

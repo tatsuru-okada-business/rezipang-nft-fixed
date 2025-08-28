@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, memo, useCallback } from "react";
 import { useActiveAccount, useSendTransaction } from "thirdweb/react";
 import { prepareContractCall, getContract, readContract, toWei } from "thirdweb";
 import { approve } from "thirdweb/extensions/erc20";
 import { claimTo } from "thirdweb/extensions/erc1155";
 import { client, chain, contractAddress } from "@/lib/thirdweb";
-import { getNFTName, getPaymentInfo, isFeatureEnabled } from "@/lib/projectConfig";
+import { isFeatureEnabled } from "@/lib/projectConfig";
 import { NFTImage } from "./NFTImage";
 import { TokenGallery } from "./TokenGallery";
 import { canMintClient, getSupplyStatusTextClient, updateMintedCountClient } from "@/lib/maxSupplyClient";
+import { withCache } from "@/lib/cache";
 
 interface SimpleMintProps {
   locale?: string;
@@ -17,7 +18,7 @@ interface SimpleMintProps {
 
 function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
   const account = useActiveAccount();
-  const [quantity, setQuantity] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const [mintPrice, setMintPrice] = useState<string>("0");
   const [loading, setLoading] = useState(true);
   const [minting, setMinting] = useState(false);
@@ -39,6 +40,10 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
   const [countdown, setCountdown] = useState<string>("");
   const [periodColor, setPeriodColor] = useState<string>("green");
   const [saleStatus, setSaleStatus] = useState<'active' | 'before' | 'after' | 'unlimited'>('unlimited');
+  const [reservedSupply, setReservedSupply] = useState<number>(0);
+  const [soldOutMessage, setSoldOutMessage] = useState<string>("");
+  const [userMintedCount, setUserMintedCount] = useState<number>(0);
+  const [maxPerWalletSetting, setMaxPerWalletSetting] = useState<number>(10);
   
   // 進捗表示用の状態
   const [txProgress, setTxProgress] = useState<{
@@ -61,11 +66,15 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
   const defaultTokenId = parseInt(process.env.NEXT_PUBLIC_DEFAULT_TOKEN_ID || "0");
   const [tokenId, setTokenId] = useState(defaultTokenId);
 
-  // Payment token configuration from project config
-  const paymentInfo = getPaymentInfo();
-  const paymentTokenAddress = paymentInfo?.address || process.env.NEXT_PUBLIC_PAYMENT_TOKEN_ADDRESS;
-  const paymentTokenSymbol = paymentInfo?.symbol || process.env.NEXT_PUBLIC_PAYMENT_TOKEN_SYMBOL || "MATIC";
-  const configuredMintPrice = paymentInfo?.price || process.env.NEXT_PUBLIC_MINT_PRICE || "0";
+  // テスト環境と本番環境を判別
+  const isTestEnvironment = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS === '0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1';
+  
+  // テスト環境ではZENYトークンを使用、本番環境では設定に応じて使用
+  const paymentTokenAddress = isTestEnvironment 
+    ? '0x7B2d2732dcCC1830AA63241dC13649b7861d9b54' // テスト環境：ZENYトークン
+    : process.env.NEXT_PUBLIC_PAYMENT_TOKEN_ADDRESS;
+  const paymentTokenSymbol = process.env.NEXT_PUBLIC_PAYMENT_TOKEN_SYMBOL || "POL";
+  const configuredMintPrice = process.env.NEXT_PUBLIC_MINT_PRICE || "0";
 
   // アローリストチェック（最大MINT数も取得）
   useEffect(() => {
@@ -92,6 +101,19 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         setIsAllowlisted(data.isAllowlisted);
         setMaxMintAmount(data.maxMintAmount || 1);
         
+        // ユーザーの保有数とウォレット制限を保存
+        if (data.userMinted !== undefined) {
+          setUserMintedCount(data.userMinted);
+        }
+        if (data.maxPerWallet !== undefined) {
+          setMaxPerWalletSetting(data.maxPerWallet);
+          console.log('Max per wallet settings:', {
+            effective: data.maxPerWallet,
+            thirdweb: data.thirdwebMaxPerWallet,
+            local: data.localMaxPerWallet
+          });
+        }
+        
         // Merkle Proofが返されたら保存
         if (data.merkleProof) {
           setMerkleProof(data.merkleProof);
@@ -111,85 +133,90 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
     checkAllowlist();
   }, [account?.address, quantity]);
 
-  // トークン情報の取得
-  useEffect(() => {
-    async function fetchTokenInfo() {
-      try {
-        // バージョンチェックして必要に応じてキャッシュをクリア
-        const versionResponse = await fetch('/api/settings-version', {
-          cache: 'no-store',
+  // トークン情報の取得（キャッシュ付き）
+  const fetchTokenInfo = useCallback(async () => {
+    try {
+      const data = await withCache(
+        `token-info-${tokenId}`,
+        async () => {
+          const response = await fetch(`/api/tokens?tokenId=${tokenId}`);
+          if (!response.ok) throw new Error('Failed to fetch token info');
+          return response.json();
+        },
+        30000 // 30秒キャッシュ
+      );
+
+      if (data.tokens && data.tokens.length > 0) {
+        const token = data.tokens[0];
+        setTokenName(token.name || "");
+        setTokenDescription(token.description || "");
+        setTokenPrice(token.price || "0");
+        setTokenCurrency(token.currency || "POL");
+        setSalesPeriod({
+          enabled: token.salesPeriodEnabled || false,
+          start: token.salesStartDate,
+          end: token.salesEndDate,
+          isUnlimited: token.isUnlimited || false
         });
+        // APIから取得した価格を保存
+        const priceFromAPI = token.price || "0";
+        setMintPrice(priceFromAPI);
+        setTokenPrice(priceFromAPI);
         
-        if (versionResponse.ok) {
-          const versionData = await versionResponse.json();
-          const savedVersion = localStorage.getItem('settings-version');
-          
-          if (savedVersion !== versionData.version) {
-            // バージョンが変更されていたらローカルストレージをクリア
-            localStorage.setItem('settings-version', versionData.version || '');
-            // キャッシュを強制リフレッシュ
-            const timestamp = new Date().getTime();
-            var response = await fetch(`/api/tokens?tokenId=${tokenId}&t=${timestamp}`, {
-              cache: 'no-store',
-            });
-          } else {
-            var response = await fetch(`/api/tokens?tokenId=${tokenId}`);
-          }
-        } else {
-          var response = await fetch(`/api/tokens?tokenId=${tokenId}`);
+        // ローカル設定から最大発行数と予約分を取得
+        if (token.maxSupply !== undefined) {
+          setMaxSupply(token.maxSupply);
         }
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.tokens && data.tokens.length > 0) {
-            const token = data.tokens[0];
-            // admin-configから取得した名前を使用（ハードコーディング禁止）
-            setTokenName(token.name || "");
-            setTokenDescription(token.description || "");
-            setTokenPrice(token.price || "0");
-            setTokenCurrency(token.currency || "POL");
-            setSalesPeriod({
-              enabled: token.salesPeriodEnabled || false,
-              start: token.salesStartDate,
-              end: token.salesEndDate,
-              isUnlimited: token.isUnlimited || false
-            });
-            
-            // 価格を更新
-            setMintPrice(token.price || "0");
-          }
+        if (token.reservedSupply !== undefined) {
+          setReservedSupply(token.reservedSupply);
         }
-      } catch (error) {
-        console.error("Error fetching token info:", error);
-        // エラー時も空文字にする（ハードコーディング禁止）
-        setTokenName("");
+        if (token.soldOutMessage !== undefined) {
+          setSoldOutMessage(token.soldOutMessage);
+        }
+        if (token.maxPerWallet !== undefined) {
+          // ローカル設定の最大ミント数を適用
+          setMaxMintAmount(token.maxPerWallet);
+        }
       }
+    } catch (error) {
+      console.error("Error fetching token info:", error);
+      setTokenName("");
     }
-    fetchTokenInfo();
   }, [tokenId]);
 
-  // 在庫状況の取得
   useEffect(() => {
-    async function fetchSupplyStatus() {
-      const statusText = await getSupplyStatusTextClient(tokenId, locale === "ja" ? "ja" : "en");
-      setSupplyStatusText(statusText);
+    fetchTokenInfo();
+  }, [fetchTokenInfo]);
+
+  // 在庫状況の取得（キャッシュ付き）
+  const fetchSupplyStatus = useCallback(async () => {
+    const statusText = await getSupplyStatusTextClient(tokenId, locale === "ja" ? "ja" : "en");
+    setSupplyStatusText(statusText);
+    
+    // 販売枚数情報も取得（ミント後はキャッシュをクリア）
+    const fetchSupply = async () => {
+      const response = await fetch(`/api/admin/max-supply?tokenId=${tokenId}`);
+      if (!response.ok) throw new Error('Failed to fetch supply');
+      return response.json();
+    };
+
+    try {
+      const data = mintSuccess 
+        ? await fetchSupply() // ミント後は新鮮なデータを取得
+        : await withCache(`supply-${tokenId}`, fetchSupply, 10000); // 10秒キャッシュ
       
-      // 販売枚数情報も取得
-      try {
-        const response = await fetch(`/api/admin/max-supply?tokenId=${tokenId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.config) {
-            setMaxSupply(data.config.publicMaxSupply || data.config.maxSupply || null);
-            setCurrentSupply(data.config.totalMinted || 0);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching supply info:', error);
+      if (data.config) {
+        setMaxSupply(data.config.publicMaxSupply || data.config.maxSupply || null);
+        setCurrentSupply(data.config.totalMinted || 0);
       }
+    } catch (error) {
+      console.error('Error fetching supply info:', error);
     }
+  }, [tokenId, locale, mintSuccess]);
+
+  useEffect(() => {
     fetchSupplyStatus();
-  }, [tokenId, locale, mintSuccess]); // mintSuccessを依存配列に追加して、ミント後に更新
+  }, [fetchSupplyStatus]);
 
   // カウントダウンと色の更新
   useEffect(() => {
@@ -210,8 +237,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
     
     // 開始・終了日時が両方とも未設定の場合はエラー
     if (!salesPeriod.start && !salesPeriod.end) {
-      setCountdown(locale === "ja" ? "販売期間未設定" : "Sale period not set");
-      setPeriodColor("red");
+      setCountdown(locale === "ja" ? "現在販売しておりません" : "Not available for sale");
+      setPeriodColor("gray");
       setSaleStatus('before'); // ミントできない状態
       return;
     }
@@ -236,6 +263,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             setCountdown(locale === "ja" ? `開始まで${minutes}分` : `Starts in ${minutes}m`);
           }
           setPeriodColor("yellow");
+          setSaleStatus('before');
           return;
         }
       }
@@ -244,6 +272,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       if (!salesPeriod.end) {
         setCountdown("");
         setPeriodColor("green");
+        setSaleStatus('active');
         return;
       }
       
@@ -253,6 +282,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       if (diff <= 0) {
         setCountdown(locale === "ja" ? "販売終了" : "Sale Ended");
         setPeriodColor("gray");
+        setSaleStatus('after');
         return;
       }
 
@@ -269,6 +299,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       } else {
         setPeriodColor("red");
       }
+      setSaleStatus('active');
 
       // カウントダウン文字列
       if (days > 0) {
@@ -294,7 +325,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
 
     updateCountdown();
     // パフォーマンス最適化: 更新頻度を減らしてCPU使用率を削減
-    const updateInterval = 30000; // 30秒ごと
+    const updateInterval = 60000; // 60秒ごとに変更してさらに負荷軽減
     const interval = setInterval(updateCountdown, updateInterval);
     return () => clearInterval(interval);
   }, [salesPeriod, locale]);
@@ -306,6 +337,9 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         setLoading(false);
         return;
       }
+
+      // トークン変更時にローディング開始
+      setLoading(true);
 
       try {
         const contract = getContract({
@@ -348,24 +382,27 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             });
             
 
-            // コントラクトから取得した価格を使用
-            if (claimCondition[5]) {
+            // コントラクトから取得した価格を使用（ただし0以外の場合のみ）
+            if (claimCondition[5] && Number(claimCondition[5]) > 0) {
               const priceFromContract = claimCondition[5].toString();
               // 通貨によって変換方法を変更
               if (tokenCurrency === 'ZENY') {
-                // ZENYは小数点なし
-                setMintPrice(priceFromContract);
+                // ZENYは小数点なし（実際は18桁で保存されている）
+                const priceInToken = Number(priceFromContract) / 1e18;
+                setMintPrice(priceInToken.toString());
               } else if (tokenCurrency === 'USDC') {
                 // USDCは6桁の小数
                 const priceInToken = Number(priceFromContract) / 1e6;
                 setMintPrice(priceInToken.toString());
               } else {
-                // POL/MATICは18桁の小数
+                // POLは18桁の小数
                 const priceInToken = Number(priceFromContract) / 1e18;
                 setMintPrice(priceInToken.toString());
               }
             } else {
-              setMintPrice(configuredMintPrice);
+              // コントラクトから価格が取得できない場合は、APIから取得した価格を使用
+              console.log("Using price from API:", tokenPrice);
+              setMintPrice(tokenPrice || configuredMintPrice);
             }
           } catch (e) {
             setMintPrice(configuredMintPrice);
@@ -378,7 +415,15 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       }
     }
 
-    fetchContractInfo();
+    // クリーンアップとタイムアウト設定
+    const timeoutId = setTimeout(() => {
+      fetchContractInfo();
+    }, 100); // 短い遅延でAPI呼び出しを統合
+
+    return () => {
+      clearTimeout(timeoutId);
+      setLoading(false); // クリーンアップ時にローディング解除
+    };
   }, [tokenId, configuredMintPrice]); // tokenCurrencyとtokenPriceは削除（無限ループの原因）
 
   const handleMint = async () => {
@@ -388,33 +433,33 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
     setMintError(null);
     
     // 販売期間チェック
-    // 無期限販売でない場合はチェックが必要
-    if (!salesPeriod.isUnlimited) {
-      console.log('販売期間チェック:', {
-        enabled: salesPeriod.enabled,
-        isUnlimited: salesPeriod.isUnlimited,
-        start: salesPeriod.start,
-        end: salesPeriod.end,
-        now: new Date().toISOString()
-      });
-      
-      // 販売期間が無効の場合
-      if (!salesPeriod.enabled) {
-        const message = locale === 'ja' 
-          ? '現在販売しておりません' 
-          : 'Not available for sale';
-        console.log('販売無効エラー:', message);
-        setMintError(message);
-        return;
-      }
-      
+    console.log('販売期間チェック:', {
+      enabled: salesPeriod.enabled,
+      isUnlimited: salesPeriod.isUnlimited,
+      start: salesPeriod.start,
+      end: salesPeriod.end,
+      now: new Date().toISOString()
+    });
+    
+    // まず販売期間が無効な場合のチェック
+    if (!salesPeriod.enabled) {
+      const message = locale === 'ja' 
+        ? '現在販売しておりません' 
+        : 'Not available for sale';
+      console.log('販売無効エラー:', message);
+      setMintError(message);
+      return;
+    }
+    
+    // 販売期間が有効で、無期限販売でない場合はチェックが必要
+    if (salesPeriod.enabled && !salesPeriod.isUnlimited) {
       const now = new Date();
       
-      // 期間が設定されていない場合（販売期間有効だが日付未設定）
-      if (salesPeriod.enabled && !salesPeriod.start && !salesPeriod.end) {
+      // 期間が設定されていない場合（isUnlimited=falseだが日付未設定）
+      if (!salesPeriod.start && !salesPeriod.end) {
         const message = locale === 'ja' 
-          ? '販売期間が設定されていません' 
-          : 'Sale period is not configured';
+          ? '現在販売しておりません（販売期間が設定されていません）' 
+          : 'Not available for sale (Sale period is not configured)';
         console.log('販売期間未設定エラー:', message);
         setMintError(message);
         return;
@@ -463,8 +508,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         address: contractAddress,
       });
 
-      // ZENY支払いの場合の処理
-      if (paymentTokenAddress && mintPrice !== "0") {
+      // ZENY支払いの場合の処理（テスト環境または本番環境でZENY使用時）
+      if (paymentTokenAddress && (isTestEnvironment || tokenCurrency === 'ZENY')) {
         const paymentToken = getContract({
           client,
           chain,
@@ -474,29 +519,51 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         // 合計支払い額を計算（ZENYは0桁の小数）
         const totalPayment = BigInt(Math.floor(Number(mintPrice) * quantity));
 
-        // セキュリティのため、毎回新規承認を実行
-        // 既存の承認額チェックは行わず、常に2ステップで実行
-        console.log(`セキュアモード: 毎回新規承認を実行 (金額: ${totalPayment})`);
+        // 現在の承認額を非同期でチェック
+        readContract({
+          contract: paymentToken,
+          method: "function allowance(address owner, address spender) view returns (uint256)",
+          params: [account.address, contractAddress],
+        }).then((currentAllowance) => {
+          const allowanceAmount = BigInt(currentAllowance.toString());
+          console.log(`現在の承認額: ${allowanceAmount}, 必要額: ${totalPayment}`);
 
-        // 2ステップの進捗表示を開始
-        setTxProgress({
-          isProcessing: true,
-          currentStep: 1,
-          totalSteps: 2,
-          stepName: locale === "ja" ? "トークン承認" : "Token Approval",
-          stepDescription: locale === "ja" 
-            ? `${tokenCurrency || "ZENY"}トークンの使用を承認しています...`
-            : `Approving ${tokenCurrency || "ZENY"} token usage...`
-        });
+          // 承認が不要な場合は直接ミントへ
+          if (allowanceAmount >= totalPayment) {
+            console.log("既に十分な承認額があるため、直接ミントを実行します");
+            setTxProgress({
+              isProcessing: true,
+              currentStep: 1,
+              totalSteps: 1,
+              stepName: locale === "ja" ? "NFTミント" : "NFT Minting",
+              stepDescription: locale === "ja" 
+                ? "NFTをミントしています..."
+                : "Minting your NFT..."
+            });
+            executeMint();
+            return;
+          }
 
-        // まずZENYトークンのapprove
-        try {
-          
-          // approve関数でトランザクションを準備
+          // 承認が必要な場合
+          console.log(`ERC20承認が必要: NFTコントラクトが${totalPayment} ${tokenCurrency}を使用できるようにします`);
+
+          // 2ステップの進捗表示を開始
+          setTxProgress({
+            isProcessing: true,
+            currentStep: 1,
+            totalSteps: 2,
+            stepName: locale === "ja" ? "トークン承認" : "Token Approval",
+            stepDescription: locale === "ja" 
+              ? `NFTコントラクトが${tokenCurrency || "ZENY"}を使用できるように承認しています...`
+              : `Approving NFT contract to use ${tokenCurrency || "ZENY"}...`
+          });
+
+          // 承認額を設定（既存の承認額がある場合は、それを考慮して新しい承認額を設定）
+          // 注意: approve関数は承認額を上書きするため、必要な総額を設定する
           const approveTx = approve({
             contract: paymentToken,
-            spender: contractAddress,
-            amount: totalPayment.toString(),  // 必要最小限の金額のみ承認（毎回実行）
+            spender: contractAddress,  // NFTコントラクトアドレス
+            amount: totalPayment.toString(),  // NFTの購入に必要な金額
           });
 
           // トランザクションを送信（コールバックベース）
@@ -518,20 +585,21 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             onError: (error) => {
               setTxProgress({ ...txProgress, isProcessing: false });
               setMintError(locale === "ja" 
-                ? `トークン承認失敗: ${error.message || "トランザクションが拒否されました"}` 
-                : `Token approval failed: ${error.message || "Transaction rejected"}`);
+                ? `承認失敗: ${error.message || "トランザクションが拒否されました"}` 
+                : `Approval failed: ${error.message || "Transaction rejected"}`);
               setMinting(false);
             },
           });
-        } catch (error: any) {
+        }).catch((error: any) => {
+          console.error("承認チェックエラー:", error);
           setTxProgress({ ...txProgress, isProcessing: false });
           setMintError(locale === "ja" 
             ? "トークン承認の準備に失敗しました" 
             : "Failed to prepare token approval");
           setMinting(false);
-        }
+        });
       } else {
-        // MATICまたは無料の場合は直接ミント（1ステップ）
+        // POLまたは無料の場合は直接ミント（1ステップ）
         setTxProgress({
           isProcessing: true,
           currentStep: 1,
@@ -558,23 +626,71 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       address: contractAddress,
     });
 
-    // MATICの場合の支払い金額（ZENYの場合は0）
+    // POLの場合の支払い金額（ZENYの場合は0）
     const totalValue = paymentTokenAddress ? BigInt(0) : toWei((Number(mintPrice) * quantity).toString());
 
+
+    // テスト環境かどうか判定
+    const isTestEnvironment = 
+      process.env.NEXT_PUBLIC_USE_CSV_FOR_MERKLE === "true" ||
+      contractAddress.toLowerCase() === "0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1".toLowerCase();
+
+    // テスト環境の場合、クレーム条件を確認
+    if (isTestEnvironment) {
+      try {
+        console.log("=== Checking claim conditions for test environment ===");
+        const { getActiveClaimCondition } = await import('thirdweb/extensions/erc1155');
+        const claimCondition = await getActiveClaimCondition({
+          contract,
+          tokenId: BigInt(tokenId || 0),
+        });
+        
+        if (claimCondition) {
+          console.log("✅ Active claim condition found:", {
+            startTime: claimCondition.startTime?.toString(),
+            price: claimCondition.pricePerToken?.toString(),
+            currency: claimCondition.currency,
+            merkleRoot: claimCondition.merkleRoot,
+            maxClaimablePerWallet: claimCondition.quantityLimitPerWallet?.toString(),
+            availableSupply: claimCondition.availableSupply?.toString(),
+          });
+        } else {
+          console.warn("⚠️ No active claim condition found!");
+          // クレーム条件がない場合は、テストモードを警告して続行
+          setMintError(
+            locale === "ja" 
+              ? "⚠️ テストコントラクトにクレーム条件が設定されていません。Thirdwebダッシュボードで設定してください。"
+              : "⚠️ Test contract has no claim conditions. Please set them in Thirdweb dashboard."
+          );
+          setMinting(false);
+          return;
+        }
+      } catch (error) {
+        console.error("❌ Error checking claim condition:", error);
+        console.warn("This is likely why minting is failing - no claim conditions are set on the contract!");
+        setMintError(
+          locale === "ja" 
+            ? "❌ クレーム条件の確認に失敗しました。コントラクトの設定を確認してください。"
+            : "❌ Failed to check claim conditions. Please verify contract setup."
+        );
+        setMinting(false);
+        return;
+      }
+    }
 
     try {
       // ReZipangコントラクトに対応した実装
       // このコントラクトはDropERC1155コントラクトで、claim関数を使用
       
-      // テスト環境かどうか判定
-      const isTestEnvironment = 
-        process.env.NEXT_PUBLIC_USE_CSV_FOR_MERKLE === "true" ||
-        contractAddress.toLowerCase() === "0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1".toLowerCase();
-      
       // テスト環境でない場合のみ SDK v5 の claimTo を試す
       if (!isTestEnvironment) {
         // 1. SDK v5のclaimToを試す（これが正しいメソッド）
         try {
+          console.log("Attempting claimTo with SDK v5:");
+          console.log("TokenId:", tokenId);
+          console.log("Quantity:", quantity);
+          console.log("Account:", account.address);
+          console.log("TotalValue:", totalValue);
           
           const claimTransaction = claimTo({
             contract,
@@ -610,46 +726,104 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       }
 
       // claimToが失敗した場合、直接claim関数を呼ぶ
-      const mintAttempts = [
-        // コントラクトが期待する通貨でclaimを試す
+      // 価格の計算（通貨に応じて）
+      // テスト環境でも実際の価格を使用（表示用）
+      const pricePerTokenWei = paymentTokenAddress 
+        ? (tokenCurrency === "USDC" 
+          ? BigInt(Math.floor(Number(mintPrice) * 1e6)) // USDCは6桁
+          : toWei(mintPrice)) // ZENYは18桁
+        : toWei(mintPrice); // POLは18桁
+      
+      console.log("Environment:", isTestEnvironment ? "TEST" : "PRODUCTION");
+      console.log("Price calculations:");
+      console.log("mintPrice:", mintPrice);
+      console.log("tokenCurrency:", tokenCurrency);
+      console.log("paymentTokenAddress:", paymentTokenAddress);
+      console.log("pricePerTokenWei:", pricePerTokenWei.toString());
+      
+      const mintAttempts = isTestEnvironment ? [
+        // テスト環境用：基本的なmint関数
         {
-          name: "claim (with USDC currency)",
+          name: "mintTo (basic ERC1155)",
+          method: "function mintTo(address to, uint256 tokenId, string uri, uint256 amount)",
+          params: [account.address, BigInt(tokenId), "", BigInt(quantity)]
+        },
+        {
+          name: "mint (ERC1155)",
+          method: "function mint(address to, uint256 id, uint256 amount, bytes data)",
+          params: [account.address, BigInt(tokenId), BigInt(quantity), "0x"]
+        },
+        {
+          name: "mintBatch (single token)",
+          method: "function mintBatch(address to, uint256[] ids, uint256[] amounts, bytes data)",
+          params: [account.address, [BigInt(tokenId)], [BigInt(quantity)], "0x"]
+        },
+        // lazyMint（新規トークンの作成）
+        {
+          name: "lazyMint",
+          method: "function lazyMint(uint256 _amount, string _baseURIForTokens, bytes _data)",
+          params: [BigInt(quantity), "", "0x"]
+        },
+        // claimの簡単なバージョン
+        {
+          name: "claim (3 params only)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity)",
+          params: [account.address, BigInt(tokenId), BigInt(quantity)]
+        },
+        // 最後の手段：フルパラメータのclaim
+        {
+          name: "claim (test - with native token)",
           method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
           params: [
             account.address,
             BigInt(tokenId),
             BigInt(quantity),
-            "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC on Polygon
-            BigInt(0), // 0 price for USDC (free claim)
-            isTestEnvironment ? [] : (merkleProof || []),
+            "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native POL
+            BigInt(0), // 無料
+            [], // 空のproof
+            "0x"
+          ]
+        }
+      ] : [
+        // 本番環境用：実際の支払い通貨とprice設定でclaim
+        {
+          name: "claim (with correct currency and price)",
+          method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
+          params: [
+            account.address,
+            BigInt(tokenId),
+            BigInt(quantity),
+            paymentTokenAddress || "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // 通貨アドレス
+            pricePerTokenWei, // 正しい価格
+            merkleProof || [],
             "0x"
           ]
         },
-        // MATICでのclaimを試す
+        // Native POLでのclaim
         {
-          name: "claim (with native MATIC)",
+          name: "claim (with native POL)",
           method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
           params: [
             account.address,
             BigInt(tokenId),
             BigInt(quantity),
-            "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token address
-            BigInt(0), // 0 price
-            isTestEnvironment ? [] : (merkleProof || []),
+            "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token
+            pricePerTokenWei,
+            [], // 空のproof
             "0x"
           ]
         },
-        // シンプルなclaim関数（フォールバック）
+        // ZENY tokenでのclaim（テスト環境用）
         {
-          name: "claim (simple with empty proof)",
+          name: "claim (with ZENY token)",
           method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity, address _currency, uint256 _pricePerToken, bytes32[] _allowlistProof, bytes _data)",
           params: [
             account.address,
             BigInt(tokenId),
             BigInt(quantity),
-            paymentTokenAddress || "0x0000000000000000000000000000000000000000",
-            toWei(mintPrice),
-            isTestEnvironment ? [] : (merkleProof || []),
+            "0x7B2d2732dcCC1830AA63241dC13649b7861d9b54", // ZENY token
+            pricePerTokenWei,
+            [], // 空のproof
             "0x"
           ]
         },
@@ -657,43 +831,18 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           name: "claim (simple)",
           method: "function claim(address _receiver, uint256 _tokenId, uint256 _quantity)",
           params: [account.address, BigInt(tokenId), BigInt(quantity)]
-        },
-        // ERC1155標準パターン
-        {
-          name: "mint (ERC1155 with data)",
-          method: "function mint(address to, uint256 id, uint256 amount, bytes data)",
-          params: [account.address, BigInt(tokenId), BigInt(quantity), "0x"]
-        },
-        {
-          name: "mintTo (ERC1155)",
-          method: "function mintTo(address to, uint256 tokenId, uint256 amount)",
-          params: [account.address, BigInt(tokenId), BigInt(quantity)]
-        },
-        // LazyMint対応
-        {
-          name: "lazyMint",
-          method: "function lazyMint(uint256 _amount, string _baseURIForTokens, bytes _data)",
-          params: [BigInt(quantity), "", "0x"]
-        },
-        // ERC721パターン（フォールバック）
-        {
-          name: "safeMint",
-          method: "function safeMint(address to, uint256 quantity)",
-          params: [account.address, BigInt(quantity)]
-        },
-        {
-          name: "publicMint",
-          method: "function publicMint(uint256 quantity)",
-          params: [BigInt(quantity)]
-        },
+        }
       ];
 
       let lastError: any = null;
-      let attemptedMethods: string[] = isTestEnvironment ? [] : ["claimTo (SDK v5)"];
+      let attemptedMethods: string[] = isTestEnvironment ? ["Skipped claimTo (test env)"] : ["claimTo (SDK v5)"];
       
       for (const attempt of mintAttempts) {
         try {
           attemptedMethods.push(attempt.name);
+          console.log(`Attempting mint with method: ${attempt.name}`);
+          console.log('Parameters:', attempt.params);
+          console.log('Value:', totalValue);
           
           const transaction = prepareContractCall({
             contract,
@@ -725,6 +874,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           
         } catch (error: any) {
           lastError = error;
+          console.error(`Method ${attempt.name} failed:`, error?.message || error);
           
           // エラーメッセージを解析
           const errorMessage = error?.message || error?.toString() || "";
@@ -745,12 +895,36 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
 
       // すべての方法が失敗した場合
       const errorDetails = lastError?.message || "Unknown error";
+      console.error("❌ Mint failed with all methods");
+      console.error("Attempted methods:", attemptedMethods);
+      console.error("Last error:", errorDetails);
       
-      setMintError(
-        locale === "ja" 
-          ? "ミントに失敗しました。もう一度お試しください。" 
-          : "Mint failed. Please try again."
-      );
+      // エラーメッセージをより詳細に
+      let detailedError = "";
+      
+      if (errorDetails.includes("insufficient funds")) {
+        detailedError = locale === "ja"
+          ? "残高が不足しています。ウォレットにPOL（ガス代）があることを確認してください。"
+          : "Insufficient funds. Please ensure you have POL for gas fees.";
+      } else if (errorDetails.includes("user rejected") || errorDetails.includes("User denied")) {
+        detailedError = locale === "ja"
+          ? "トランザクションがキャンセルされました。"
+          : "Transaction cancelled by user.";
+      } else if (errorDetails.includes("execution reverted") && isTestEnvironment) {
+        detailedError = locale === "ja"
+          ? "テスト環境のコントラクトエラー：クレーム条件が設定されていない可能性があります。管理者に連絡してください。"
+          : "Test contract error: Claim conditions may not be set. Please contact administrator.";
+      } else if (errorDetails.includes("execution reverted")) {
+        detailedError = locale === "ja"
+          ? "コントラクトエラー：販売条件を満たしていない可能性があります。"
+          : "Contract error: Sale conditions may not be met.";
+      } else {
+        detailedError = locale === "ja" 
+          ? `ミントに失敗しました。試行したメソッド: ${attemptedMethods.join(", ")}`
+          : `Mint failed. Attempted methods: ${attemptedMethods.join(", ")}`;
+      }
+      
+      setMintError(detailedError);
     } catch (unexpectedError: any) {
       setMintError(
         locale === "ja" 
@@ -793,7 +967,9 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
     // Reset states when changing token
     setMintPrice(configuredMintPrice);
     setTotalSupply("0");
-    setLoading(true);
+    setMintError(null);
+    setMintSuccess(false);
+    // loadingはuseEffectで自動的に管理されるので設定しない
   };
 
   return (
@@ -1005,6 +1181,16 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                     {currentSupply.toLocaleString()} {locale === "ja" ? "枚" : "pcs"}
                   </span>
                 </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm text-gray-600">
+                    {locale === "ja" ? "残り" : "Remaining"}
+                  </span>
+                  <span className={`font-bold ${
+                    maxSupply - currentSupply <= 10 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {(maxSupply - currentSupply).toLocaleString()} {locale === "ja" ? "枚" : "pcs"}
+                  </span>
+                </div>
                 {/* プログレスバー */}
                 <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                   <div 
@@ -1012,6 +1198,38 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                     style={{ width: `${Math.min((currentSupply / maxSupply) * 100, 100)}%` }}
                   />
                 </div>
+                {/* ミント予定の表示 */}
+                {quantity > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-sm">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-600">
+                          {locale === "ja" ? "ミント予定数" : "Will mint"}
+                        </span>
+                        <span className="font-semibold text-purple-600">
+                          {quantity} {locale === "ja" ? "枚" : "pcs"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">
+                          {locale === "ja" ? "ミント後の合計" : "After mint total"}
+                        </span>
+                        <span className={`font-bold ${
+                          currentSupply + quantity > maxSupply ? 'text-red-600' : 'text-blue-600'
+                        }`}>
+                          {(currentSupply + quantity).toLocaleString()} / {maxSupply.toLocaleString()}
+                        </span>
+                      </div>
+                      {currentSupply + quantity > maxSupply && (
+                        <div className="mt-2 text-xs text-red-600 font-medium">
+                          {locale === "ja" 
+                            ? "⚠️ 在庫が不足しています。数量を減らしてください。" 
+                            : "⚠️ Insufficient supply. Please reduce quantity."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1022,7 +1240,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             <span className="text-gray-800 font-semibold">
               {locale === "ja" ? "価格" : "Price"}
             </span>
-            <span className="text-2xl font-bold text-purple-600">
+            <span className="text-2xl font-bold price-display">
               {mintPrice === "0" ? (
                 locale === "ja" ? "無料" : "Free"
               ) : (
@@ -1032,7 +1250,22 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           </div>
         </div>
 
-        {/* エラー表示 */}
+        {/* 販売状態表示 - 常に表示 */}
+        {/* 販売期間が無効または未設定の場合 */}
+        {(!salesPeriod.enabled || (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)) && (
+          <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 text-center text-gray-800 font-semibold mb-4">
+            <div className="text-lg mb-1">
+              {locale === "ja" ? "⚠️ 現在販売しておりません" : "⚠️ Not available for sale"}
+            </div>
+            {salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end && (
+              <div className="text-sm text-gray-600 font-normal">
+                {locale === "ja" ? "販売期間が設定されていません" : "Sale period is not configured"}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* エラー表示（ミントボタンクリック時） */}
         {mintError && (
           <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-red-800 text-sm font-medium mb-4">
             <div className="font-semibold mb-1">
@@ -1042,8 +1275,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           </div>
         )}
         
-        {/* 販売期間表示 */}
-        {salesPeriod.enabled && ((salesPeriod.start || salesPeriod.end) || (!salesPeriod.start && !salesPeriod.end)) && (
+        {/* 販売期間表示 - 有効で設定されている場合のみ */}
+        {salesPeriod.enabled && (salesPeriod.isUnlimited || (salesPeriod.start || salesPeriod.end)) && (
           <div className={`rounded-xl p-4 mb-4 border ${
             periodColor === "green" 
               ? "bg-green-50 border-green-200" 
@@ -1120,40 +1353,77 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                     setQuantity(quantity - 1);
                   }
                 }}
+                disabled={
+                  quantity <= 0 || 
+                  !salesPeriod.enabled || 
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
+                }
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
-                  quantity <= 0 
+                  quantity <= 0 || 
+                  !salesPeriod.enabled || 
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                    : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
+                    : 'quantity-button hover:opacity-80'
                 }`}
               >
                 -
               </button>
-              <span className="w-12 text-center text-xl font-bold text-gray-900">{quantity}</span>
+              <span className="w-12 text-center text-xl font-bold quantity-display">{quantity}</span>
               <button
                 type="button"
                 onClick={() => {
                   if (isAllowlisted && quantity < maxMintAmount) {
-                    setQuantity(quantity + 1);
+                    // 在庫上限チェック（運営予約分を除く）
+                    const availableSupply = maxSupply ? maxSupply - reservedSupply : null;
+                    if (availableSupply && currentSupply + quantity + 1 <= availableSupply) {
+                      setQuantity(quantity + 1);
+                    } else if (availableSupply === null || availableSupply === undefined) {
+                      // 在庫上限がない場合は単純にインクリメント
+                      setQuantity(quantity + 1);
+                    }
                   }
                 }}
+                disabled={
+                  !isAllowlisted || 
+                  quantity >= maxMintAmount ||
+                  (maxSupply && currentSupply + quantity >= maxSupply - reservedSupply) // 在庫上限に達した場合（運営予約分を除く）
+                }
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
-                  !isAllowlisted || quantity >= maxMintAmount 
+                  !isAllowlisted || 
+                  quantity >= maxMintAmount ||
+                  (maxSupply && currentSupply + quantity >= maxSupply - reservedSupply)
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                    : 'bg-purple-100 hover:bg-purple-200 text-purple-700 cursor-pointer'
+                    : 'quantity-button hover:opacity-80'
                 }`}
-                disabled={!isAllowlisted || quantity >= maxMintAmount}
               >
                 +
               </button>
             </div>
           </div>
-          {isAllowlisted && maxMintAmount >= 1 && (
-            <p className="text-xs text-gray-600 text-center mt-2">
-              {locale === "ja" 
-                ? `最大${maxMintAmount}枚までミント可能` 
-                : `Max ${maxMintAmount} NFTs per wallet`}
-            </p>
-          )}
+          {/* 数量選択のヘルプメッセージ */}
+          <div className="text-xs text-center mt-2 space-y-1">
+            {isAllowlisted && maxPerWalletSetting > 0 && (
+              <p className="text-gray-600">
+                {locale === "ja" 
+                  ? `ウォレットあたり最大${maxPerWalletSetting}枚まで` 
+                  : `Max ${maxPerWalletSetting} NFTs per wallet`}
+              </p>
+            )}
+            {maxSupply && currentSupply + quantity > maxSupply - reservedSupply - 10 && currentSupply < maxSupply - reservedSupply && (
+              <p className="text-orange-600 font-semibold">
+                {locale === "ja" 
+                  ? `⚠️ 残り在庫わずか（${Math.max(0, maxSupply - reservedSupply - currentSupply)}枚）` 
+                  : `⚠️ Low stock (${Math.max(0, maxSupply - reservedSupply - currentSupply)} remaining)`}
+              </p>
+            )}
+            {maxSupply && currentSupply >= maxSupply - reservedSupply && (
+              <p className="text-red-600 font-bold">
+                {soldOutMessage || (locale === "ja" 
+                  ? "🚫 在庫切れ" 
+                  : "🚫 Out of stock")}
+              </p>
+            )}
+          </div>
         </div>
 
           {/* 合計 */}
@@ -1181,11 +1451,11 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         <button
           type="button"
           onClick={handleMint}
-          disabled={minting || (isAllowlisted === false) || quantity < 1 || saleStatus === 'before' || saleStatus === 'after'}
-          className={`w-full py-4 rounded-xl font-extrabold text-lg transition-all transform ${
-            minting || (isAllowlisted === false) || quantity < 1 || saleStatus === 'before' || saleStatus === 'after'
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-purple-600 text-white hover:bg-purple-700 hover:scale-[1.02] shadow-lg hover:shadow-xl border-2 border-purple-700"
+          disabled={minting || (isAllowlisted === false) || quantity < 1 || (saleStatus === 'before' || saleStatus === 'after') || maxMintAmount === 0}
+          className={`w-full py-4 rounded-xl font-extrabold text-lg transition-all transform mint-button ${
+            minting || (isAllowlisted === false) || quantity < 1 || (saleStatus === 'before' || saleStatus === 'after') || maxMintAmount === 0
+              ? "!bg-gray-300 !text-gray-500 cursor-not-allowed"
+              : "hover:scale-[1.02] shadow-lg hover:shadow-xl"
           }`}
         >
           {minting ? (
@@ -1195,6 +1465,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             </span>
           ) : isAllowlisted === false ? (
             <span>{locale === "ja" ? "アローリスト未登録" : "Not on allowlist"}</span>
+          ) : maxMintAmount === 0 ? (
+            <span>{locale === "ja" ? "ウォレット上限到達" : "Wallet limit reached"}</span>
           ) : saleStatus === 'before' ? (
             <span>
               {salesPeriod.enabled && !salesPeriod.start && !salesPeriod.end ? 
@@ -1238,13 +1510,9 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
 
         {/* ヘルプテキスト */}
         <div className="text-center text-xs text-gray-700 font-medium">
-          {paymentTokenAddress 
-            ? (locale === "ja" 
-              ? `※ ${tokenCurrency || paymentTokenSymbol}トークンでの支払いが必要です` 
-              : `※ Payment in ${tokenCurrency || paymentTokenSymbol} tokens required`)
-            : (locale === "ja" 
-              ? "※ ガス代が別途必要です" 
-              : "※ Gas fees will be required")
+          {locale === "ja" 
+            ? "※ 別途ガス代が必要になります" 
+            : "※ Gas fees will be required"
           }
         </div>
       </div>

@@ -54,7 +54,7 @@ export function getMergedTokenConfigs(): MergedTokenConfig[] {
         uri: token.thirdweb.uri || '',
         image: token.thirdweb.image || '',
         description: localConfig.customDescription || token.thirdweb.description || '',
-        currentPrice: token.thirdweb.currentPrice || '0',
+        currentPrice: token.thirdweb.currentPrice || localConfig.customPrice || '0',
         currency: token.thirdweb.currency || 'POL',
         merkleRoot: token.thirdweb.merkleRoot,
         claimConditionActive: token.thirdweb.claimConditionActive,
@@ -68,6 +68,10 @@ export function getMergedTokenConfigs(): MergedTokenConfig[] {
         salesEndDate: localConfig.salesEndDate,
         isUnlimited: localConfig.isUnlimited ?? true,
         totalMinted: localConfig.totalMinted ?? 0,
+        maxSupply: localConfig.maxSupply,
+        reservedSupply: localConfig.reservedSupply ?? 0,
+        soldOutMessage: localConfig.soldOutMessage || "売り切れました",
+        maxPerWallet: localConfig.maxPerWallet ?? 10,
       };
     });
   } catch (error) {
@@ -101,7 +105,7 @@ export function updateTokenLocalSettings(
   updates: Partial<LocalSettings['tokens'][string]>
 ): void {
   const settings = loadLocalSettings() || {
-    defaultTokenId: 2,
+    defaultTokenId: 0,
     tokens: {},
     lastUpdated: new Date().toISOString(),
   };

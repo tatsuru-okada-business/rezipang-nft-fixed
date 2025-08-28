@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     // local-settings.jsonを直接更新（Thirdweb再取得なし）
     const localSettingsPath = join(process.cwd(), 'local-settings.json');
     let localSettingsData: any = {
-      defaultTokenId: 2,
+      defaultTokenId: 0,
       tokens: {},
       lastUpdated: new Date().toISOString()
     };

@@ -5,12 +5,10 @@
       "displayEnabled": true,
       "displayOrder": 0,
       "isDefaultDisplay": true,
-      "salesPeriodEnabled": false,
+      "salesPeriodEnabled": true,
       "isUnlimited": true,
-      "totalMinted": 0,
-      "tokenId": 0,
-      "lastSyncTime": "2025-08-27T08:36:15.060Z"
+      "totalMinted": 0
     }
   },
-  "lastUpdated": "2025-08-27T08:38:00.000Z"
+  "lastUpdated": "2025-08-28T05:38:57.024Z"
 }

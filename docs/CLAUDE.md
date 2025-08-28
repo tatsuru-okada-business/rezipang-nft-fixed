@@ -217,7 +217,8 @@ npm run dev
 - ✅ 機能フラグ管理
 
 ### 実装予定
-- ⏳ テーマカラー設定
+- ✅ テーマカラー設定（実装済み）
+- ✅ Favicon自動生成（実装済み）
 - ⏳ ロゴアップロード
 - ⏳ SEO設定
 - ⏳ 多言語テキスト編集
@@ -276,6 +277,38 @@ NEXT_PUBLIC_ADMIN_ADDRESSES=0x...,0x...
 
 ---
 
-**最終更新**: 2025-08-27
-**バージョン**: 4.0.0
+## 🎯 最大発行数管理
+
+### 無制限販売の設定
+```json
+// local-settings.json
+{
+  "tokens": {
+    "0": {
+      "isUnlimited": true,  // 無制限販売を有効化
+      "maxSupply": undefined // 最大発行数は設定しない
+    }
+  }
+}
+```
+
+### 最大発行数の動作
+- `isUnlimited: true` の場合、ミント制限なし
+- `maxSupply` が設定されている場合、その数量まで販売
+- `getMaxSupplyConfig` が null を返す場合は無制限を意味
+
+## 🎨 Favicon管理
+
+### 自動生成機能
+- 管理パネルからプロジェクト名の頭文字を使用して自動生成
+- テーマカラー（背景色・文字色）を反映
+- 文字の縁取り設定も可能
+
+### API エンドポイント
+- `/api/favicon` - Faviconを配信
+- `/api/admin/generate-favicon` - Favicon生成
+- キャッシュバスティング: `?t=timestamp` パラメータで無効化
+
+**最終更新**: 2025-08-28
+**バージョン**: 4.1.0
 **管理者**: Claude AI Assistant

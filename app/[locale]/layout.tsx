@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 import { Providers } from "../providers";
+import { getProjectConfig } from "@/lib/projectConfig";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// プロジェクト設定からメタデータを生成
+const projectConfig = getProjectConfig();
+
 export const metadata: Metadata = {
-  title: "NFT Mint Site",
-  description: "Exclusive NFT minting for allowlisted addresses",
+  title: projectConfig.projectName || "NFT Mint Site",
+  description: projectConfig.projectDescription || "Exclusive NFT minting for allowlisted addresses",
+  icons: {
+    icon: '/api/favicon',
+  },
 };
 
 export default async function LocaleLayout({

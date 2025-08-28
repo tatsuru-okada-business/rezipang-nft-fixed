@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ColorPicker } from './ColorPicker';
 
 interface ProjectSettings {
   projectName: string;
@@ -14,18 +15,17 @@ interface ProjectSettings {
   };
   ui: {
     theme: {
-      primary: string;
-      secondary: string;
+      backgroundColor: string;
+      textColor: string;
+    };
+    textOutline?: {
+      enabled: boolean;
+      color: string;
     };
   };
   localization: {
     defaultLocale: string;
     availableLocales: string[];
-  };
-  payment?: {
-    currency: string;
-    price: string;
-    tokenAddress: string | null;
   };
 }
 
@@ -33,6 +33,8 @@ export function ProjectSettings() {
   const [settings, setSettings] = useState<ProjectSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingFavicon, setGeneratingFavicon] = useState(false);
+  const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -53,6 +55,57 @@ export function ProjectSettings() {
     }
   };
 
+  const generateFavicon = async () => {
+    if (!settings) return;
+    
+    setGeneratingFavicon(true);
+    try {
+      const response = await fetch('/api/admin/generate-favicon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: settings.projectName || 'NFT',
+          theme: settings.ui.theme,
+          textOutline: settings.ui.textOutline
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFaviconPreview(data.favicon);
+        
+        // faviconを即座に更新（少し遅延させてファイルが保存されるのを待つ）
+        setTimeout(() => {
+          updateFaviconInDOM();
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Favicon generation failed:', error);
+    }
+    setGeneratingFavicon(false);
+  };
+
+  const updateFaviconInDOM = () => {
+    try {
+      // 既存のfaviconリンクを更新または新規作成
+      let faviconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement;
+      
+      if (!faviconLink) {
+        // faviconリンクが存在しない場合は新規作成
+        faviconLink = document.createElement('link');
+        faviconLink.rel = 'icon';
+        faviconLink.type = 'image/svg+xml';
+        document.head.appendChild(faviconLink);
+      }
+      
+      // hrefを更新（キャッシュバスティング付き）
+      faviconLink.href = `/api/favicon?t=${Date.now()}`;
+      
+    } catch (error) {
+      console.error('Error updating favicon:', error);
+    }
+  };
+
   const saveSettings = async () => {
     if (!settings) return;
     
@@ -66,6 +119,16 @@ export function ProjectSettings() {
       
       if (response.ok) {
         alert('設定を保存しました');
+        
+        // faviconがプレビューされている場合、再度生成して反映
+        if (faviconPreview) {
+          await generateFavicon();
+        }
+        
+        // ページをリロードして新しい設定を反映
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } else {
         alert('設定の保存に失敗しました');
       }
@@ -82,14 +145,14 @@ export function ProjectSettings() {
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-bold mb-6">プロジェクト設定</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">プロジェクト設定</h2>
       
       {/* 基本設定 */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">基本設定</h3>
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">基本設定</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-gray-700">
               プロジェクト名
             </label>
             <input
@@ -99,11 +162,11 @@ export function ProjectSettings() {
                 ...settings,
                 projectName: e.target.value
               })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-medium mb-1 text-gray-700">
               プロジェクト説明
             </label>
             <textarea
@@ -112,39 +175,19 @@ export function ProjectSettings() {
                 ...settings,
                 projectDescription: e.target.value
               })}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={3}
             />
           </div>
         </div>
       </div>
 
-      {/* 支払い情報（読み取り専用） */}
-      {settings.payment && (
-        <div className="mb-8 p-4 bg-blue-50 rounded-lg">
-          <h3 className="text-lg font-semibold mb-4">
-            支払い設定（Claim Conditionから自動取得）
-          </h3>
-          <div className="space-y-2 text-sm">
-            <p>通貨: <span className="font-semibold">{settings.payment.currency}</span></p>
-            <p>価格: <span className="font-semibold">{settings.payment.price}</span></p>
-            {settings.payment.tokenAddress && (
-              <p className="text-xs">
-                トークンアドレス: {settings.payment.tokenAddress}
-              </p>
-            )}
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            ※ 支払い設定はThirdwebのClaim Conditionから自動的に取得されます
-          </p>
-        </div>
-      )}
 
       {/* 機能フラグ */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">機能設定</h3>
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">機能設定</h3>
         <div className="space-y-3">
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="checkbox"
               checked={settings.features.showTokenGallery}
@@ -155,11 +198,11 @@ export function ProjectSettings() {
                   showTokenGallery: e.target.checked
                 }
               })}
-              className="mr-2"
+              className="mr-2 accent-blue-600"
             />
             トークンギャラリーを表示
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="checkbox"
               checked={settings.features.showPriceChecker}
@@ -170,11 +213,11 @@ export function ProjectSettings() {
                   showPriceChecker: e.target.checked
                 }
               })}
-              className="mr-2"
+              className="mr-2 accent-blue-600"
             />
             価格チェッカーを表示（開発用）
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="checkbox"
               checked={settings.features.showMintSimulator}
@@ -185,11 +228,11 @@ export function ProjectSettings() {
                   showMintSimulator: e.target.checked
                 }
               })}
-              className="mr-2"
+              className="mr-2 accent-blue-600"
             />
             ミントシミュレーターを表示
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center text-gray-700">
             <input
               type="checkbox"
               checked={settings.features.maxMintPerWallet}
@@ -200,7 +243,7 @@ export function ProjectSettings() {
                   maxMintPerWallet: e.target.checked
                 }
               })}
-              className="mr-2"
+              className="mr-2 accent-blue-600"
             />
             ウォレットごとの最大ミント数制限
           </label>
@@ -209,64 +252,184 @@ export function ProjectSettings() {
 
       {/* UI設定 */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">UIテーマ</h3>
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">サイト全体の色設定</h3>
+        <div className="text-sm text-gray-600 mb-4">
+          サイト全体の背景色と文字色を設定できます
+        </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              プライマリカラー
-            </label>
-            <select
-              value={settings.ui.theme.primary}
+          <ColorPicker
+            label="背景色"
+            color={settings.ui.theme.backgroundColor || '#E0E7FF'}
+            onChange={(color) => setSettings({
+              ...settings,
+              ui: {
+                ...settings.ui,
+                theme: {
+                  ...settings.ui.theme,
+                  backgroundColor: color
+                }
+              }
+            })}
+          />
+          <ColorPicker
+            label="メイン文字色"
+            color={settings.ui.theme.textColor || '#7C3AED'}
+            onChange={(color) => setSettings({
+              ...settings,
+              ui: {
+                ...settings.ui,
+                theme: {
+                  ...settings.ui.theme,
+                  textColor: color
+                }
+              }
+            })}
+          />
+        </div>
+        <div className="mt-4 p-4 border rounded-lg">
+          <div className="text-sm text-gray-600 mb-2">プレビュー:</div>
+          <div 
+            className="p-6 rounded-lg"
+            style={{ 
+              backgroundColor: settings.ui.theme.backgroundColor || '#E0E7FF',
+            }}
+          >
+            <h2 
+              className="text-2xl font-bold mb-3"
+              style={{ 
+                color: settings.ui.theme.textColor || '#7C3AED',
+                textShadow: settings.ui?.textOutline?.enabled 
+                  ? `1px 1px 0 ${settings.ui.textOutline.color || '#000000'}, -1px 1px 0 ${settings.ui.textOutline.color || '#000000'}, 1px -1px 0 ${settings.ui.textOutline.color || '#000000'}, -1px -1px 0 ${settings.ui.textOutline.color || '#000000'}`
+                  : 'none'
+              }}
+            >
+              限定NFTミント
+            </h2>
+            <div className="space-y-2">
+              <p style={{ color: settings.ui.theme.textColor || '#7C3AED' }}>
+                ・無料
+              </p>
+              <div className="flex items-center gap-2">
+                <button 
+                  className="px-3 py-1 rounded border-2"
+                  style={{ 
+                    borderColor: settings.ui.theme.textColor || '#7C3AED',
+                    color: settings.ui.theme.textColor || '#7C3AED'
+                  }}
+                >
+                  -
+                </button>
+                <span style={{ color: settings.ui.theme.textColor || '#7C3AED' }}>1</span>
+                <button 
+                  className="px-3 py-1 rounded border-2"
+                  style={{ 
+                    borderColor: settings.ui.theme.textColor || '#7C3AED',
+                    color: settings.ui.theme.textColor || '#7C3AED'
+                  }}
+                >
+                  +
+                </button>
+              </div>
+              <button 
+                className="px-6 py-2 rounded-lg font-bold"
+                style={{ 
+                  backgroundColor: settings.ui.theme.textColor || '#7C3AED',
+                  color: settings.ui.theme.backgroundColor || '#E0E7FF'
+                }}
+              >
+                NFTをミント
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 縁取り設定 */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">縁取り設定</h3>
+        <div className="space-y-4">
+          <label className="flex items-center text-gray-700">
+            <input
+              type="checkbox"
+              checked={settings.ui?.textOutline?.enabled || false}
               onChange={(e) => setSettings({
                 ...settings,
                 ui: {
                   ...settings.ui,
-                  theme: {
-                    ...settings.ui.theme,
-                    primary: e.target.value
+                  textOutline: {
+                    enabled: e.target.checked,
+                    color: settings.ui?.textOutline?.color || '#000000'
                   }
                 }
               })}
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="purple">Purple</option>
-              <option value="blue">Blue</option>
-              <option value="green">Green</option>
-              <option value="red">Red</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              セカンダリカラー
-            </label>
-            <select
-              value={settings.ui.theme.secondary}
-              onChange={(e) => setSettings({
-                ...settings,
-                ui: {
-                  ...settings.ui,
-                  theme: {
-                    ...settings.ui.theme,
-                    secondary: e.target.value
+              className="mr-2 accent-blue-600"
+            />
+            文字の縁取りを有効にする
+          </label>
+          {settings.ui?.textOutline?.enabled && (
+            <div className="ml-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                縁取りの色
+              </label>
+              <input
+                type="color"
+                value={settings.ui?.textOutline?.color || '#000000'}
+                onChange={(e) => setSettings({
+                  ...settings,
+                  ui: {
+                    ...settings.ui,
+                    textOutline: {
+                      enabled: settings.ui?.textOutline?.enabled || false,
+                      color: e.target.value
+                    }
                   }
-                }
-              })}
-              className="w-full px-3 py-2 border rounded-lg"
+                })}
+                className="w-20 h-10 border-2 border-gray-300 rounded cursor-pointer"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                プロジェクト名、説明、favicon文字に適用されます
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Favicon自動生成 */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Favicon設定</h3>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={generateFavicon}
+              disabled={generatingFavicon}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                generatingFavicon
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
             >
-              <option value="blue">Blue</option>
-              <option value="purple">Purple</option>
-              <option value="green">Green</option>
-              <option value="gray">Gray</option>
-            </select>
+              {generatingFavicon ? '生成中...' : 'アイコン自動生成'}
+            </button>
+            {faviconPreview && (
+              <div className="flex items-center gap-2">
+                <img src={faviconPreview} alt="Favicon Preview" className="w-8 h-8" />
+                <span className="text-sm text-green-600 font-medium">
+                  ✅ 生成されました
+                </span>
+              </div>
+            )}
           </div>
+          <p className="text-xs text-gray-500">
+            プロジェクト名の頭文字、テーマカラー、縁取り設定を使用して自動生成されます
+          </p>
         </div>
       </div>
 
       {/* 言語設定 */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">言語設定</h3>
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">言語設定</h3>
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label className="block text-sm font-medium mb-1 text-gray-700">
             デフォルト言語
           </label>
           <select
@@ -278,10 +441,10 @@ export function ProjectSettings() {
                 defaultLocale: e.target.value
               }
             })}
-            className="w-full px-3 py-2 border rounded-lg"
+            className="w-full px-3 py-2 border rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="ja">日本語</option>
-            <option value="en">English</option>
+            <option value="ja" className="text-gray-600">日本語</option>
+            <option value="en" className="text-gray-600">English</option>
           </select>
         </div>
       </div>

@@ -1,10 +1,11 @@
 import { WalletConnect } from "@/components/WalletConnect";
-import { SimpleMint } from "@/components/SimpleMint";
+import SimpleMint from "@/components/SimpleMintWrapper";
 import { NFTDetails } from "@/components/NFTDetails";
 import { PriceChecker } from "@/components/PriceChecker";
 import { MintSimulator } from "@/components/MintSimulator";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { isFeatureEnabled } from "@/lib/projectConfig";
+import { PageThemeWrapper } from "@/components/PageThemeWrapper";
+import { isFeatureEnabled, getProjectConfig } from "@/lib/projectConfig";
 import en from "@/locales/en.json";
 import ja from "@/locales/ja.json";
 
@@ -20,21 +21,31 @@ export default async function Home({
 }) {
   const { locale } = await params;
   const t = translations[locale as keyof typeof translations] || translations.en;
+  const projectConfig = getProjectConfig();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-100 to-blue-100">
-      <div className="container mx-auto px-4 py-16">
+    <PageThemeWrapper>
+      <main className="min-h-screen">
+        <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-end mb-4">
             <LanguageSwitcher currentLocale={locale} />
           </div>
           
           <header className="text-center mb-8">
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4">
-              {t.title}
+            <h1 className="text-5xl font-bold mb-4 site-title" style={{
+              textShadow: projectConfig.ui?.textOutline?.enabled 
+                ? `1px 1px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -1px 1px 0 ${projectConfig.ui.textOutline.color || '#000000'}, 1px -1px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -1px -1px 0 ${projectConfig.ui.textOutline.color || '#000000'}`
+                : 'none'
+            }}>
+              {projectConfig.projectName || t.title}
             </h1>
-            <p className="text-xl text-gray-800 font-medium">
-              {t.subtitle}
+            <p className="text-xl font-medium themed-text" style={{
+              textShadow: projectConfig.ui?.textOutline?.enabled 
+                ? `0.5px 0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -0.5px 0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}, 0.5px -0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -0.5px -0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}`
+                : 'none'
+            }}>
+              {projectConfig.projectDescription || t.subtitle}
             </p>
           </header>
 
@@ -79,7 +90,7 @@ export default async function Home({
           </div>
         </div>
       </div>
-      
-    </main>
+      </main>
+    </PageThemeWrapper>
   );
 }

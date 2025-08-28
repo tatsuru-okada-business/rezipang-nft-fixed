@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useActiveAccount } from 'thirdweb/react';
-import { ConnectButton } from 'thirdweb/react';
+import { useActiveAccount, ConnectButton } from 'thirdweb/react';
 import { client } from '@/lib/thirdweb';
 import type { ManagedToken } from '@/lib/types/adminConfig';
 import { formatPrice } from '@/lib/formatPrice';
@@ -462,6 +461,33 @@ export default function NewAdminPanel() {
                   />
                 </div>
 
+                {/* 価格設定 */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">
+                    カスタム価格（Thirdwebで価格が設定されていない場合に使用）
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={selectedToken.local.customPrice || ''}
+                      onChange={(e) => {
+                        const newToken = { ...selectedToken };
+                        newToken.local.customPrice = e.target.value;
+                        setSelectedToken(newToken);
+                      }}
+                      placeholder="例: 1"
+                      className="flex-1 px-3 py-2 bg-gray-700 text-white rounded"
+                    />
+                    <span className="text-gray-400">
+                      {selectedToken.thirdweb.currency || 'POL'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Thirdwebのクレーム条件で価格が設定されていない場合、この価格が使用されます
+                  </p>
+                </div>
+
                 {/* 販売期間設定 */}
                 <div className="border-t border-gray-600 pt-4">
                   <label className="flex items-center space-x-2 mb-3">
@@ -613,7 +639,6 @@ export default function NewAdminPanel() {
                         }}
                         className="w-full px-3 py-2 bg-gray-700 text-white rounded"
                         min="0"
-                        disabled={!selectedToken.local.maxSupply}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         最大発行数から差し引かれる運営保有分
@@ -673,8 +698,58 @@ export default function NewAdminPanel() {
                         }}
                         placeholder="売り切れました"
                         className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                        disabled={!selectedToken.local.maxSupply}
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        在庫がなくなった時に表示されるメッセージ
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">
+                        1ウォレットあたりの最大ミント数
+                      </label>
+                      <input
+                        type="number"
+                        value={selectedToken.local.maxPerWallet || 10}
+                        onChange={(e) => {
+                          const newToken = { ...selectedToken };
+                          const inputValue = parseInt(e.target.value) || 1;
+                          const thirdwebLimit = selectedToken.thirdweb.maxPerWallet;
+                          const hasAllowlist = selectedToken.thirdweb.merkleRoot && selectedToken.thirdweb.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+                          
+                          // アローリスト設定時の警告
+                          if (hasAllowlist) {
+                            alert(`⚠️ このトークンはアローリストが設定されています。\n個別のウォレット制限はアローリストで管理されている可能性があります。\n制限を変更する場合は、Thirdwebのクレームコンディションを直接更新してください。`);
+                            return; // 変更を許可しない
+                          }
+                          
+                          // Thirdwebの制限と比較
+                          if (thirdwebLimit && inputValue > thirdwebLimit) {
+                            alert(`⚠️ Thirdwebのクレームコンディションで設定された制限（${thirdwebLimit}枚）を超えています。\n自動的に${thirdwebLimit}枚に調整されます。`);
+                            newToken.local.maxPerWallet = thirdwebLimit;
+                          } else {
+                            newToken.local.maxPerWallet = inputValue;
+                          }
+                          setSelectedToken(newToken);
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 text-white rounded"
+                        min="1"
+                        max="9999"
+                        disabled={selectedToken.thirdweb.merkleRoot && selectedToken.thirdweb.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000'}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        1つのウォレットがミントできる最大数（UI制限）
+                        {selectedToken.thirdweb.maxPerWallet && (
+                          <span className="block text-yellow-400 mt-1">
+                            ※ Thirdweb制限: {selectedToken.thirdweb.maxPerWallet}枚
+                          </span>
+                        )}
+                        {selectedToken.thirdweb.merkleRoot && selectedToken.thirdweb.merkleRoot !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+                          <span className="block text-red-400 mt-1">
+                            ⚠️ アローリスト設定済み。Thirdwebで制限を管理してください。
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
                 </div>

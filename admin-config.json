@@ -1,6 +1,6 @@
 {
   "contractAddress": "0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1",
-  "lastSync": "2025-08-27T08:36:15.060Z",
+  "lastSync": "2025-08-28T05:38:57.024Z",
   "tokens": [
     {
       "thirdweb": {
@@ -21,10 +21,10 @@
         "displayEnabled": true,
         "displayOrder": 0,
         "isDefaultDisplay": true,
-        "salesPeriodEnabled": false,
+        "salesPeriodEnabled": true,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-27T08:36:15.060Z"
+        "lastSyncTime": "2025-08-28T05:38:57.024Z"
       }
     }
   ]

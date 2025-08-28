@@ -10,7 +10,7 @@ const adminConfig = JSON.parse(fs.readFileSync(adminConfigPath, 'utf-8'));
 
 // Read or create local-settings.json
 let localSettings = {
-  defaultTokenId: 2,
+  defaultTokenId: 0,
   tokens: {},
   lastUpdated: new Date().toISOString()
 };

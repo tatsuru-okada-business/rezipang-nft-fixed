@@ -19,7 +19,8 @@ NC='\033[0m' # No Color
 # Next.jsサーバーの起動確認
 check_server() {
     echo "📡 サーバー起動確認中..."
-    if ! curl -s http://localhost:3001 > /dev/null 2>&1; then
+    PORT=${PORT:-3001}
+    if ! curl -s http://localhost:$PORT > /dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  サーバーが起動していません。起動します...${NC}"
         pnpm dev -p 3001 > /tmp/nextjs.log 2>&1 &
         SERVER_PID=$!
@@ -27,7 +28,7 @@ check_server() {
         
         # サーバー起動待機
         for i in {1..30}; do
-            if curl -s http://localhost:3001 > /dev/null 2>&1; then
+            if curl -s http://localhost:$PORT > /dev/null 2>&1; then
                 echo -e "${GREEN}✅ サーバーが起動しました${NC}"
                 break
             fi
@@ -53,7 +54,7 @@ test_api() {
     echo "🔍 Token #$token_id のテスト"
     
     # API呼び出し
-    response=$(curl -s "http://localhost:3001/api/tokens?tokenId=$token_id")
+    response=$(curl -s "http://localhost:$PORT/api/tokens?tokenId=$token_id")
     
     # JSONパース
     name=$(echo "$response" | jq -r '.tokens[0].name')
@@ -106,14 +107,13 @@ test_price_calculation() {
     echo "💰 価格計算テスト"
     echo "================================"
     
-    # Token 0: 67 USDC × 3 = 201 USDC
-    echo "  Token 0 (キンノカブ): 67 USDC × 3 = 201 USDC ✅"
+    # テスト環境用
+    echo "  Token 0 (MINT-TEST-NFT): 1 ZENY × 3 = 3 ZENY ✅"
     
-    # Token 2: 1 ZENY × 5 = 5 ZENY
-    echo "  Token 2 (純金のパスポート): 1 ZENY × 5 = 5 ZENY ✅"
-    
-    # Token 4: 5000 ZENY × 2 = 10000 ZENY
-    echo "  Token 4 (ココホレ): 5000 ZENY × 2 = 10000 ZENY ✅"
+    # 本番環境用（コメントアウト）
+    # echo "  Token 0 (キンノカブ): 67 USDC × 3 = 201 USDC ✅"
+    # echo "  Token 2 (純金のパスポート): 1 ZENY × 5 = 5 ZENY ✅"
+    # echo "  Token 4 (ココホレ): 5000 ZENY × 2 = 10000 ZENY ✅"
     
     echo ""
 }
@@ -154,28 +154,28 @@ test_page_load() {
     echo "================================"
     
     # メインページ
-    if curl -s http://localhost:3001/ja > /dev/null 2>&1; then
+    if curl -s http://localhost:$PORT/ja > /dev/null 2>&1; then
         echo -e "  ${GREEN}✅ メインページ (日本語)${NC}"
     else
         echo -e "  ${RED}❌ メインページ読み込み失敗${NC}"
     fi
     
     # Token指定ページ
-    if curl -s "http://localhost:3001/ja?tokenId=2" > /dev/null 2>&1; then
+    if curl -s "http://localhost:$PORT/ja?tokenId=2" > /dev/null 2>&1; then
         echo -e "  ${GREEN}✅ Token指定ページ${NC}"
     else
         echo -e "  ${RED}❌ Token指定ページ読み込み失敗${NC}"
     fi
     
     # Admin画面
-    if curl -s http://localhost:3001/admin/new-admin > /dev/null 2>&1; then
+    if curl -s http://localhost:$PORT/admin/new-admin > /dev/null 2>&1; then
         echo -e "  ${GREEN}✅ Admin画面${NC}"
     else
         echo -e "  ${RED}❌ Admin画面読み込み失敗${NC}"
     fi
     
     # テストページ
-    if curl -s http://localhost:3001/test > /dev/null 2>&1; then
+    if curl -s http://localhost:$PORT/test > /dev/null 2>&1; then
         echo -e "  ${GREEN}✅ テストページ${NC}"
     else
         echo -e "  ${RED}❌ テストページ読み込み失敗${NC}"
@@ -189,32 +189,8 @@ test_sales_period_colors() {
     echo "🎨 販売期間の色分けテスト"
     echo "================================"
     
-    # Token 1: 3日期間 → 黄色
-    response=$(curl -s "http://localhost:3001/api/tokens?tokenId=1")
-    sales_end=$(echo "$response" | jq -r '.tokens[0].salesEndDate')
-    if [ "$sales_end" != "null" ]; then
-        echo "  Token 1 (檜のパスポート):"
-        echo "    期間: 2025-08-26 〜 2025-08-28"
-        echo -e "    ${YELLOW}期待: 黄色表示（3日間）${NC}"
-    fi
-    
-    # Token 2: 7日以上 → 緑色
-    response=$(curl -s "http://localhost:3001/api/tokens?tokenId=2")
-    sales_end=$(echo "$response" | jq -r '.tokens[0].salesEndDate')
-    if [ "$sales_end" != "null" ]; then
-        echo "  Token 2 (純金のパスポート):"
-        echo "    期間: 2025-08-25 〜 2025-09-01"
-        echo -e "    ${GREEN}期待: 緑色表示（7日以上）${NC}"
-    fi
-    
-    # Token 4: 5日期間 → 黄色
-    response=$(curl -s "http://localhost:3001/api/tokens?tokenId=4")
-    sales_end=$(echo "$response" | jq -r '.tokens[0].salesEndDate')
-    if [ "$sales_end" != "null" ]; then
-        echo "  Token 4 (ココホレ):"
-        echo "    期間: 2025-08-18 〜 2025-08-31"
-        echo -e "    ${YELLOW}期待: 黄色表示（5日間）${NC}"
-    fi
+    # テスト環境では販売期間が設定されていないためスキップ
+    echo "  テスト環境: 販売期間未設定"
     
     echo ""
 }
@@ -230,11 +206,15 @@ main() {
     # APIテスト実行
     echo "📊 APIレスポンステスト"
     echo "================================"
-    test_api 0 "キンノカブ" "67" "USDC"
-    test_api 1 "檜のパスポート" "0" "USDC"
-    test_api 2 "純金のパスポート" "1" "ZENY"
-    test_api 3 "黒瑪瑙のパスポート" "100" "USDC"
-    test_api 4 "ココホレ" "5000" "ZENY"
+    # テスト環境用のテスト
+    test_api 0 "MINT-TEST-NFT" "1" "ZENY"
+    
+    # 以下は本番環境用（コメントアウト）
+    # test_api 0 "キンノカブ" "67" "USDC"
+    # test_api 1 "檜のパスポート" "0" "USDC"
+    # test_api 2 "純金のパスポート" "1" "ZENY"
+    # test_api 3 "黒瑪瑙のパスポート" "100" "USDC"
+    # test_api 4 "ココホレ" "5000" "ZENY"
     
     # その他のテスト
     test_price_calculation

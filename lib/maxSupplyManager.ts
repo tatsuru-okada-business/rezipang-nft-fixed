@@ -35,6 +35,11 @@ export function getMaxSupplyConfig(tokenId: number): MaxSupplyConfig | null {
       return null;
     }
 
+    // 無制限の場合は制限なしとして扱う
+    if (tokenConfig.isUnlimited === true) {
+      return null; // nullは無制限を意味する
+    }
+
     const maxSupply = tokenConfig.maxSupply;
     const reservedSupply = tokenConfig.reservedSupply || 0;
     const currentMinted = tokenConfig.totalMinted || 0;
