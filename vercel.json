@@ -2,7 +2,9 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["hnd1"],
+  "regions": [
+    "hnd1"
+  ],
   "build": {
     "env": {
       "SKIP_ENV_VALIDATION": "true"
