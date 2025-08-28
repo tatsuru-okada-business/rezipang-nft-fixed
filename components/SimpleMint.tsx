@@ -626,9 +626,16 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
 
   const handleMint = async (skipPriceCheck = false) => {
     if (!account || !contractAddress || quantity === 0) return;
+    
+    // 二重クリック防止
+    if (minting) {
+      console.log('ミント処理中のためスキップ');
+      return;
+    }
 
     // エラーをクリア
     setMintError(null);
+    setMintSuccess(false); // 以前の成功状態をクリア
     
     // tokenIdがnullの場合はエラー
     if (tokenId === null) {
@@ -765,7 +772,7 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
           method: "function allowance(address owner, address spender) view returns (uint256)",
           params: [account.address, contractAddress],
         }).then((currentAllowance) => {
-          const allowanceAmount = BigInt(currentAllowance.toString());
+          const allowanceAmount = BigInt(currentAllowance?.toString() || "0");
           console.log(`現在の承認額: ${allowanceAmount}, 必要額: ${totalPayment}`);
 
           // 承認が不要な場合は直接ミントへ
@@ -831,12 +838,19 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
             },
           });
         }).catch((error: any) => {
-          // console.error("承認チェックエラー:", error);
-          setTxProgress({ ...txProgress, isProcessing: false });
-          setMintError(locale === "ja" 
-            ? "トークン承認の準備に失敗しました" 
-            : "Failed to prepare token approval");
-          setMinting(false);
+          console.error("承認チェックエラー:", error);
+          // エラーでも直接ミントを試みる（承認が不要な可能性もあるため）
+          console.log("承認チェックに失敗しましたが、ミントを試みます");
+          setTxProgress({
+            isProcessing: true,
+            currentStep: 1,
+            totalSteps: 1,
+            stepName: locale === "ja" ? "NFTミント" : "NFT Minting",
+            stepDescription: locale === "ja" 
+              ? "NFTをミントしています..."
+              : "Minting your NFT..."
+          });
+          executeMint(finalCurrencyAddress, finalMintPrice, finalTokenCurrency);
         });
       } else {
         // POLの場合は直接ミント（1ステップ）
@@ -962,6 +976,13 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                 setMintError(null);
                 // ミント成功後に在庫を更新
                 updateMintedCountClient(tokenId!, quantity); // nullチェック済み
+                
+                // 5秒後に成功メッセージを自動で閉じる
+                setTimeout(() => {
+                  setMintSuccess(false);
+                  setQuantity(1);
+                }, 5000);
+                
                 resolve();
               },
               onError: (error) => {
@@ -1130,6 +1151,13 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                 setMintError(null);
                 // ミント成功後に在庫を更新
                 updateMintedCountClient(tokenId!, quantity); // nullチェック済み
+                
+                // 5秒後に成功メッセージを自動で閉じる
+                setTimeout(() => {
+                  setMintSuccess(false);
+                  setQuantity(1);
+                }, 5000);
+                
                 resolve();
               },
               onError: (error) => {
@@ -1848,9 +1876,9 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         <button
           type="button"
           onClick={() => handleMint()}
-          disabled={minting || (isAllowlisted === false) || quantity < 1 || (saleStatus === 'before' || saleStatus === 'after') || maxPerWalletSetting === 0 || !tokenCurrency || !!mintError}
+          disabled={minting || mintSuccess || (isAllowlisted === false) || quantity < 1 || (saleStatus === 'before' || saleStatus === 'after') || maxPerWalletSetting === 0 || !tokenCurrency || !!mintError}
           className={`w-full py-4 rounded-xl font-extrabold text-lg transition-all transform mint-button ${
-            minting || (isAllowlisted === false) || quantity < 1 || (saleStatus === 'before' || saleStatus === 'after') || maxPerWalletSetting === 0 || !tokenCurrency || !!mintError
+            minting || mintSuccess || (isAllowlisted === false) || quantity < 1 || (saleStatus === 'before' || saleStatus === 'after') || maxPerWalletSetting === 0 || !tokenCurrency || !!mintError
               ? "!bg-gray-300 !text-gray-500 cursor-not-allowed"
               : "hover:scale-[1.02] shadow-lg hover:shadow-xl"
           }`}
