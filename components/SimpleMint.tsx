@@ -52,6 +52,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [priceMismatch, setPriceMismatch] = useState<{adminPrice: number; claimPrice: number} | null>(null);
   const [showPriceConfirmModal, setShowPriceConfirmModal] = useState(false);
+  const [claimConditionChecking, setClaimConditionChecking] = useState(false);
+  const [claimConditionValid, setClaimConditionValid] = useState<boolean | null>(null);
   
   // 進捗表示用の状態
   const [txProgress, setTxProgress] = useState<{
@@ -144,16 +146,21 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
     loadDefaultToken();
   }, []); // 依存配列を空にして最初に1回だけ実行
 
-  // アローリストチェック（最大MINT数も取得）
+  // アローリストチェック（最大MINT数も取得）とClaimConditionの確認
   useEffect(() => {
-    async function checkAllowlist() {
+    async function checkAllowlistAndClaimCondition() {
       if (!account?.address || tokenId === null) {
         setIsAllowlisted(null);
         setMaxMintAmount(1);
+        setClaimConditionValid(null);
         return;
       }
 
+      setClaimConditionChecking(true);
+      console.log('===== ClaimConditionとアローリストチェック開始 =====');
+
       try {
+        // まずアローリストをチェック
         const response = await fetch("/api/verify-allowlist", {
           method: "POST",
           headers: {
@@ -197,14 +204,61 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         } else if (effectiveMaxMint === 0) {
           setQuantity(0);
         }
+
+        // ClaimConditionもチェック
+        if (contractAddress && tokenId !== null) {
+          try {
+            console.log('ClaimConditionチェック開始: tokenId =', tokenId);
+            const contract = getContract({
+              client,
+              chain,
+              address: contractAddress,
+            });
+
+            // ClaimConditionの取得
+            const claimCondition = await readContract({
+              contract,
+              method: "function claimCondition(uint256) view returns (uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata)",
+              params: [BigInt(tokenId)],
+            });
+
+            console.log('ClaimCondition取得成功:', {
+              startTimestamp: claimCondition[0]?.toString(),
+              maxClaimableSupply: claimCondition[1]?.toString(),
+              supplyClaimed: claimCondition[2]?.toString(),
+              quantityLimitPerWallet: claimCondition[3]?.toString(),
+              merkleRoot: claimCondition[4],
+              pricePerToken: claimCondition[5]?.toString(),
+              currency: claimCondition[6],
+            });
+
+            // ClaimConditionが設定されているかチェック
+            const startTimestamp = claimCondition[0];
+            if (startTimestamp && Number(startTimestamp) > 0) {
+              setClaimConditionValid(true);
+              console.log('✅ ClaimConditionが有効です');
+            } else {
+              setClaimConditionValid(false);
+              console.log('❌ ClaimConditionが設定されていません');
+            }
+          } catch (error) {
+            console.error('ClaimCondition取得エラー:', error);
+            setClaimConditionValid(false);
+          }
+        }
       } catch (error) {
+        console.error('アローリストチェックエラー:', error);
         setIsAllowlisted(false);
         setMaxMintAmount(1);
+        setClaimConditionValid(false);
+      } finally {
+        setClaimConditionChecking(false);
+        console.log('===== チェック完了 =====');
       }
     }
 
-    checkAllowlist();
-  }, [account?.address, tokenId]);
+    checkAllowlistAndClaimCondition();
+  }, [account?.address, tokenId, contractAddress]);
 
   // トークン情報の取得（キャッシュ付き）
   const fetchTokenInfo = useCallback(async () => {
@@ -1263,12 +1317,16 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
     );
   }
 
-  if (loading) {
+  // アカウント接続後、初期データとClaimCondition確認が完了するまでローディング表示
+  if (loading || (account && claimConditionChecking)) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
         <div className="text-gray-700 font-medium mt-4">
-          {locale === "ja" ? "読み込み中..." : "Loading..."}
+          {account && claimConditionChecking 
+            ? (locale === "ja" ? "アローリストを確認中..." : "Checking allowlist...") 
+            : (locale === "ja" ? "読み込み中..." : "Loading...")
+          }
         </div>
       </div>
     );
@@ -1762,12 +1820,14 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                 disabled={
                   quantity <= 0 || 
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
+                  claimConditionChecking  // ClaimCondition確認中は非活性
                 }
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
                   quantity <= 0 || 
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
+                  claimConditionChecking
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'quantity-button hover:opacity-80'
                 }`}
@@ -1795,7 +1855,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                   quantity >= maxMintAmount ||
                   (maxSupply && currentSupply + quantity >= maxSupply - reservedSupply) || // 在庫上限に達した場合（運営予約分を除く）
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
+                  claimConditionChecking  // ClaimCondition確認中は非活性
                 }
                 className={`w-10 h-10 rounded-full transition-colors flex items-center justify-center font-bold ${
                   !isAllowlisted || 
@@ -1803,7 +1864,8 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
                   quantity >= maxMintAmount ||
                   (maxSupply && currentSupply + quantity >= maxSupply - reservedSupply) ||
                   !salesPeriod.enabled || 
-                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end)
+                  (salesPeriod.enabled && !salesPeriod.isUnlimited && !salesPeriod.start && !salesPeriod.end) ||
+                  claimConditionChecking
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'quantity-button hover:opacity-80'
                 }`}
@@ -1864,13 +1926,14 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         
         {/* アローリストステータス */}
         {isAllowlisted !== null && !isAllowlisted && !mintError && (
-          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center text-red-800 font-semibold">
+          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center text-red-800 font-semibold mb-4">
             {locale === "ja" 
               ? "⚠️ あなたのウォレットはアローリストに登録されていません" 
               : "⚠️ Your wallet is not on the allowlist"
             }
           </div>
         )}
+
 
         {/* ミントボタン */}
         <button

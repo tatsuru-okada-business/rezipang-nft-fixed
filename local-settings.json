@@ -34,7 +34,10 @@
       "displayOrder": 4,
       "salesPeriodEnabled": true,
       "isUnlimited": true,
-      "totalMinted": 0
+      "totalMinted": 0,
+      "tokenId": 4,
+      "lastSyncTime": "2025-08-28T13:12:03.485Z",
+      "isDefaultDisplay": true
     },
     "5": {
       "displayEnabled": true,
@@ -142,5 +145,5 @@
       "totalMinted": 0
     }
   },
-  "lastUpdated": "2025-08-28T12:28:56.168Z"
+  "lastUpdated": "2025-08-28T13:12:51.414Z"
 }
