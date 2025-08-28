@@ -3,6 +3,30 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* デフォルトカラー（blue） */
+  --color-primary-50: rgb(239 246 255);
+  --color-primary-100: rgb(219 234 254);
+  --color-primary-200: rgb(191 219 254);
+  --color-primary-300: rgb(147 197 253);
+  --color-primary-400: rgb(96 165 250);
+  --color-primary-500: rgb(59 130 246);
+  --color-primary-600: rgb(37 99 235);
+  --color-primary-700: rgb(29 78 216);
+  --color-primary-800: rgb(30 64 175);
+  --color-primary-900: rgb(30 58 138);
+  
+  /* デフォルトセカンダリカラー（gray） */
+  --color-secondary-50: rgb(249 250 251);
+  --color-secondary-100: rgb(243 244 246);
+  --color-secondary-200: rgb(229 231 235);
+  --color-secondary-300: rgb(209 213 219);
+  --color-secondary-400: rgb(156 163 175);
+  --color-secondary-500: rgb(107 114 128);
+  --color-secondary-600: rgb(75 85 99);
+  --color-secondary-700: rgb(55 65 81);
+  --color-secondary-800: rgb(31 41 55);
+  --color-secondary-900: rgb(17 24 39);
 }
 
 @theme inline {
@@ -23,4 +47,16 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 言語設定のセレクトボックスのスタイル強化 */
+select option {
+  color: rgb(17 24 39) !important;
+  font-weight: 500 !important;
+  background-color: white !important;
+  padding: 8px !important;
+}
+
+select {
+  color: rgb(17 24 39) !important;
 }

@@ -4,36 +4,35 @@
  */
 
 const projectConfig = {
-  // プロジェクト基本情報
-  projectName: "ReZipang NFT",
-  projectDescription: "ReZipang NFT Minting Site",
+  // プロジェクト基本情報（デフォルト値）
+  // 実際の値はproject-settings.jsonまたは管理パネルから設定
+  projectName: "NFT Minting Site",
+  projectDescription: "NFT Minting Platform",
   
   // NFT情報
   nft: {
-    // トークン名はThirdwebから動的に取得されます
-    // ハードコーディングは使用しません
-    tokenNames: {}, // 空のオブジェクト - Thirdwebから取得
+    // トークン情報は全てThirdwebから動的に取得
+    tokenNames: {}, // 使用しない - Thirdwebから取得
     defaultName: "NFT", // フォールバック用のデフォルト名
     collectionName: "NFT Collection",
-    // 外部トークン設定ファイルを使用するか
-    useExternalTokenConfig: false, // falseにしてThirdwebのデータを使用
+    useExternalTokenConfig: false, // 常にThirdwebのデータを使用
   },
 
-  // 支払い設定
+  // 支払い設定（ClaimConditionから動的取得）
   payment: {
-    // ZENY支払いを有効化（falseにするとMATIC/ETH支払い）
-    useCustomToken: true,
-    tokenSymbol: "ZENY",
-    tokenAddress: "0x7B2d2732dcCC1830AA63241dC13649b7861d9b54",
-    defaultPrice: "1",
+    // これらの値は使用されません - ClaimConditionが優先されます
+    useCustomToken: false,
+    tokenSymbol: "POL",
+    tokenAddress: null,
+    defaultPrice: "0",
   },
 
   // UI設定
   ui: {
     // カラーテーマ
     theme: {
-      primary: "purple",    // purple, blue, green, red, etc.
-      secondary: "blue",
+      backgroundColor: "#E0E7FF",    // サイト全体の背景色
+      textColor: "#7C3AED",          // メインの文字色
     },
     // ロゴやブランディング
     branding: {
@@ -57,11 +56,11 @@ const projectConfig = {
     maxMintPerWallet: true,     // ウォレットごとの最大MINT数制限
   },
 
-  // メタデータ
+  // メタデータ（デフォルト値）
   metadata: {
-    title: "ReZipang NFT Mint Site",
-    description: "Mint your ReZipang NFT on Polygon",
-    keywords: ["NFT", "ReZipang", "Polygon", "Mint"],
+    title: "NFT Mint Site",
+    description: "Mint your NFT",
+    keywords: ["NFT", "Mint", "Blockchain"],
     ogImage: "/og-image.png",
   },
 };

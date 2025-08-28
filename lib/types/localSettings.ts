@@ -8,11 +8,13 @@ export interface LocalTokenSettings {
   isUnlimited?: boolean;
   customDescription?: string;
   customName?: string;
+  customPrice?: string;  // カスタム価格設定
   totalMinted?: number;
   maxSupply?: number;
   reservedSupply?: number;
   soldOutMessage?: string;
   salesNote?: string;
+  maxPerWallet?: number;  // 1ウォレットあたりの最大ミント数
 }
 
 export interface LocalSettings {
@@ -47,4 +49,8 @@ export interface MergedTokenConfig {
   customDescription?: string;
   customName?: string;
   totalMinted?: number;
+  maxSupply?: number;
+  reservedSupply?: number;
+  soldOutMessage?: string;
+  maxPerWallet?: number;
 }

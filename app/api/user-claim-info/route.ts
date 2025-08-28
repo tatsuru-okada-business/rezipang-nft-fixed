@@ -16,6 +16,17 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check local settings for unlimited sales
+    const { loadLocalSettings } = await import('@/lib/localTokenSettings');
+    const localSettings = loadLocalSettings();
+    const tokenSettings = localSettings.get(tokenId);
+    const isUnlimitedSale = tokenSettings?.isUnlimited === true && tokenSettings?.salesPeriodEnabled === true;
+    
+    console.log(`Token ${tokenId} settings:`, {
+      salesPeriodEnabled: tokenSettings?.salesPeriodEnabled,
+      isUnlimited: tokenSettings?.isUnlimited,
+      isUnlimitedSale
+    });
     
     let userMintedCount = 0;
     let hasThirdwebAllowlist = false;
@@ -56,9 +67,9 @@ export async function POST(req: Request) {
           // Get currency info and calculate price based on decimals
           if (claimCondition.currency === '0x0000000000000000000000000000000000000000' || 
               claimCondition.currency === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
-            currency = 'MATIC';
+            currency = 'POL';
             paymentTokenAddress = undefined; // Native token
-            // MATIC has 18 decimals
+            // POL has 18 decimals
             price = claimCondition.pricePerToken ? (Number(claimCondition.pricePerToken) / 1e18).toString() : '0';
           } else if (claimCondition.currency === '0x7B2d2732dcCC1830AA63241dC13649b7861d9b54') {
             currency = 'ZENY';
@@ -79,7 +90,8 @@ export async function POST(req: Request) {
 
           // If there's an allowlist, for now we'll assume the user is not on it
           // (proper verification would require merkle proof)
-          if (hasThirdwebAllowlist) {
+          // BUT: If this is an unlimited sale, bypass the allowlist check
+          if (hasThirdwebAllowlist && !isUnlimitedSale) {
             isUserAllowlisted = false; // Would need merkle proof to verify
           }
         }
@@ -91,19 +103,43 @@ export async function POST(req: Request) {
     }
 
     // Create user claim info based on Thirdweb data
+    // ローカル設定のmaxPerWalletを使用、未設定の場合はThirdwebの値を使用
+    const localMaxPerWallet = tokenSettings?.maxPerWallet;
+    
+    // 実効的な最大ミント数を計算
+    // 1. ローカル設定がある場合、Thirdweb制限との小さい方を採用
+    // 2. ローカル設定がない場合はThirdwebのmaxClaimablePerWalletを使用
+    let effectiveMaxTotal: number;
+    
+    if (localMaxPerWallet !== undefined && localMaxPerWallet > 0) {
+      // ローカル設定がある場合、Thirdweb制限と比較して小さい方を使用
+      effectiveMaxTotal = Math.min(localMaxPerWallet, maxClaimablePerWallet);
+      console.log(`Token ${tokenId}: 実効制限 = min(local:${localMaxPerWallet}, thirdweb:${maxClaimablePerWallet}) = ${effectiveMaxTotal}`);
+    } else {
+      // ローカル設定がない場合はThirdwebの値を使用
+      effectiveMaxTotal = maxClaimablePerWallet;
+      console.log(`Token ${tokenId}: ローカル設定なし、Thirdweb制限を使用: ${effectiveMaxTotal}`);
+    }
+    
+    // 残りミント可能数を計算（既に保有している分を差し引く）
+    const remainingMintAmount = Math.max(0, effectiveMaxTotal - userMintedCount);
+    
     const claimInfo = {
       address,
       isAllowlisted: isUserAllowlisted,
-      maxMintAmount: isUserAllowlisted ? Math.max(0, maxClaimablePerWallet - userMintedCount) : 0,
+      maxMintAmount: isUserAllowlisted ? remainingMintAmount : 0,
       currentPrice: price,
       currency,
       paymentTokenAddress,
       availableSupply: 1000, // Would need to check actual supply
       userMinted: userMintedCount,
-      canMint: isUserAllowlisted && userMintedCount < maxClaimablePerWallet,
+      canMint: isUserAllowlisted && userMintedCount < effectiveMaxTotal,
       saleActive: true,
+      maxPerWallet: effectiveMaxTotal, // フロントエンドで表示用（実効値を返す）
+      thirdwebMaxPerWallet: maxClaimablePerWallet, // Thirdwebの設定値も返す
+      localMaxPerWallet: localMaxPerWallet, // ローカルの設定値も返す（デバッグ用）
       reason: !isUserAllowlisted ? 'Not on allowlist' : 
-              (userMintedCount >= maxClaimablePerWallet ? 'Max mint amount reached' : undefined),
+              (userMintedCount >= effectiveMaxTotal ? 'Max mint amount reached' : undefined),
     };
 
     return NextResponse.json(claimInfo);

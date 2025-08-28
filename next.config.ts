@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   // パフォーマンス最適化設定
   reactStrictMode: false, // 開発時の二重レンダリングを防止（CPUとメモリ使用量を削減）
   
+  
   images: {
     remotePatterns: [
       {

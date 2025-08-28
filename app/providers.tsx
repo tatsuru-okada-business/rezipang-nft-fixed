@@ -2,11 +2,14 @@
 
 import React from "react";
 import { ThirdwebProvider } from "thirdweb/react";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThirdwebProvider>
-      {children}
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
     </ThirdwebProvider>
   );
 }

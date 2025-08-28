@@ -2,289 +2,313 @@
 
 最終更新: 2025-08-27
 
-## 🔴 重要：管理方針
+## 🔴 重要：汎用NFTミントサイトの管理方針
 
-### 1. 単一情報源の原則 (Single Source of Truth)
+### 1. 汎用性の原則 (Universal Design Principle)
 
-#### トークン情報の管理階層
+このシステムは**任意のNFTプロジェクトで使用可能**な汎用プラットフォームとして設計されています。
+
+#### データ取得の優先順位
 ```
-admin-config.json (マスターデータ)
-    ↓ 同期
-local-settings.json (ローカル設定)
-    ↓ キャッシュ
-default-token.json (キャッシュ)
-```
-
-- **admin-config.json**: Thirdwebから同期されたマスターデータ
-- **local-settings.json**: ローカル表示設定（販売期間、表示順など）
-- **ハードコーディング禁止**: トークン名、価格等は全て動的取得
-
-### 2. コード管理の原則
-
-#### 絶対にやってはいけないこと
-- ❌ トークン情報のハードコーディング
-- ❌ 新規ドキュメントの無断作成
-- ❌ テスト未実施のコミット
-- ❌ 重複する設定ファイルの作成
-- ❌ 既存ファイルを無視した新規ファイル作成
-
-#### 必ずやること
-- ✅ 既存ファイルの編集を優先
-- ✅ admin-configを情報源として使用
-- ✅ コードとドキュメントの整合性維持
-- ✅ 変更前後のテスト実行
-- ✅ エラーハンドリング実装
-
-## 📋 現在のシステム仕様
-
-### 環境設定
-
-#### テスト環境（現在）
-```javascript
-{
-  tokenId: 0,
-  name: "MINT-TEST-NFT",
-  description: "ミントテスト用のNFT",
-  price: "1 ZENY",
-  contract: "0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1"
-}
+1. Thirdweb ClaimCondition（価格・通貨・販売条件）
+    ↓
+2. admin-config.json（Thirdweb同期データ）
+    ↓
+3. project-settings.json（管理パネル設定）
+    ↓
+4. local-settings.json（ローカル表示設定）
+    ↓
+5. project.config.js（デフォルト値のみ）
 ```
 
-#### 本番環境
-```javascript
-{
-  tokenIds: [0, 1, 2, 3, 4],
-  contract: "0xeEb45AD49C073b0493B7104c8975ac7eaF8d003E"
-}
+### 2. コード管理の鉄則
+
+#### 🚫 絶対禁止事項
+- ❌ プロジェクト固有名のハードコーディング（"ReZipang"等）
+- ❌ 色・スタイルの直接埋め込み（Tailwindクラスで統一）
+- ❌ トークンアドレス・価格のハードコーディング
+- ❌ 環境固有設定のコード埋め込み
+- ❌ 言語テキストのコード内記載
+
+#### ✅ 必須実装事項
+- ✅ 全設定を管理パネルから変更可能に
+- ✅ ClaimConditionから動的に情報取得
+- ✅ 環境変数による環境切り替え
+- ✅ 多言語対応（localesファイル使用）
+- ✅ テーマシステムの実装
+
+## 📋 システムアーキテクチャ
+
+### 環境切り替え方式
+
+#### 1. 環境変数（.env.local）
+```env
+# テスト環境
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1
+NEXT_PUBLIC_CHAIN_ID=137
+
+# 本番環境（コメントアウトで切り替え）
+# NEXT_PUBLIC_CONTRACT_ADDRESS=0xeEb45AD49C073b0493B7104c8975ac7eaF8d003E
+# NEXT_PUBLIC_CHAIN_ID=137
 ```
 
-### 設定ファイル構造
+#### 2. 自動検出される情報
+- **NFT名**: Thirdwebメタデータから取得
+- **価格・通貨**: ClaimConditionから取得
+- **販売期間**: local-settings.jsonで管理
+- **画像**: IPFSから自動取得
 
-#### admin-config.json (マスターデータ)
+### 設定ファイル体系
+
+#### 1. admin-config.json（自動生成・編集禁止）
 ```json
 {
-  "contractAddress": "0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1",
-  "lastSync": "2025-08-27T08:36:15.060Z",
+  "contractAddress": "動的取得",
   "tokens": [
     {
       "thirdweb": {
-        "tokenId": 0,
-        "name": "MINT-TEST-NFT",
-        "totalSupply": "0",
-        "price": "1",
-        "currency": "ZENY",
-        "claimConditionActive": true
+        "tokenId": "ClaimConditionから",
+        "name": "メタデータから",
+        "price": "ClaimConditionから",
+        "currency": "ClaimConditionから"
       },
-      "local": {
-        "displayEnabled": true,
-        "salesPeriodEnabled": false,
-        "isUnlimited": true
-      }
+      "local": "local-settings.jsonと同期"
     }
   ]
 }
 ```
 
-#### local-settings.json (ローカル設定)
+#### 2. project-settings.json（管理パネルで編集）
+```json
+{
+  "projectName": "管理パネルから設定",
+  "projectDescription": "管理パネルから設定",
+  "features": {
+    "showTokenGallery": true,
+    "showPriceChecker": false
+  },
+  "ui": {
+    "theme": {
+      "primary": "purple",
+      "secondary": "blue"
+    }
+  }
+}
+```
+
+#### 3. local-settings.json（販売期間等）
 ```json
 {
   "defaultTokenId": 0,
   "tokens": {
     "0": {
-      "displayEnabled": true,
-      "salesPeriodEnabled": false,
-      "isUnlimited": true,
-      "totalMinted": 0
+      "salesPeriodEnabled": true,
+      "salesStartDate": "2025-01-01T00:00:00Z",
+      "salesEndDate": "2025-12-31T23:59:59Z",
+      "isUnlimited": false
     }
-  },
-  "lastUpdated": "2025-08-27T08:36:15.061Z"
+  }
 }
 ```
 
-### APIエンドポイント
+#### 4. project.config.js（デフォルト値のみ）
+```javascript
+// ハードコーディング禁止 - デフォルト値のみ定義
+{
+  projectName: "NFT Minting Site", // 汎用的な名前
+  projectDescription: "NFT Minting Platform",
+  // 実際の値は管理パネルから設定
+}
+```
+
+## 🎨 UIカスタマイズシステム
+
+### テーマ管理（実装予定）
+```css
+/* CSS変数による動的テーマ */
+:root {
+  --color-primary: /* 管理パネルから設定 */;
+  --color-secondary: /* 管理パネルから設定 */;
+}
+```
+
+### カラーシステム
+- Tailwind CSSのユーティリティクラスを使用
+- 色の直接指定禁止（purple-600等は使用しない）
+- CSS変数経由で動的に適用
+
+## 🌍 多言語対応
+
+### 実装方式
+```typescript
+// ❌ 悪い例
+{locale === "ja" ? "価格" : "Price"}
+
+// ✅ 良い例
+{t.price} // locales/ja.json から取得
+```
+
+### ファイル構成
+```
+locales/
+├── ja.json  # 日本語
+└── en.json  # 英語
+```
+
+## 🔄 APIエンドポイント
 
 | エンドポイント | 用途 | データソース |
 |------------|------|------------|
-| `/api/tokens` | 全トークン情報取得 | admin-config.json |
-| `/api/default-token` | デフォルトトークン取得 | local-settings → admin-config |
-| `/api/admin/sync-tokens` | Thirdweb同期 | Thirdweb API → admin-config |
-| `/api/verify-allowlist` | アローリスト確認 | allowlist.csv |
-| `/api/settings-version` | キャッシュ管理 | local-settings.json |
-| `/api/user-claim-info` | ユーザー情報 | Thirdweb API |
+| `/api/tokens` | トークン一覧 | admin-config.json |
+| `/api/default-token` | デフォルトトークン | local-settings → admin-config |
+| `/api/admin/sync-tokens` | Thirdweb同期 | Thirdweb API |
+| `/api/admin/project-settings` | プロジェクト設定 | project-settings.json |
+| `/api/verify-allowlist` | アローリスト | allowlist.csv |
 
-### 販売期間管理ロジック
+## 🚀 デプロイメント
 
-```typescript
-// 販売期間の4つの状態
-type SaleStatus = 'unlimited' | 'active' | 'before' | 'after';
+### 環境別設定
 
-// チェックフロー
-if (isUnlimited) return 'unlimited';  // 無期限販売
-if (!salesPeriodEnabled) return 'active';  // 販売期間無効
-if (!start && !end) return ERROR;  // 設定エラー
-// 日付チェック...
-```
-
-### UIコンポーネント構成
-
-#### 使用中のコンポーネント
-- `SimpleMint.tsx` - メインミント機能
-- `TokenGallery.tsx` - トークン一覧
-- `NFTImage.tsx` - 画像表示
-- `SalesPeriodDisplay.tsx` - 販売期間表示
-- `UserClaimInfo.tsx` - ユーザー情報
-- `ApprovalManager.tsx` - トークン承認
-- `SettingsUpdateNotification.tsx` - 設定更新通知
-
-#### 削除対象（未使用）
-- ~~TokenSelector.tsx~~
-- ~~MintButtonDebug.tsx~~
-- ~~NFTImageSafe.tsx~~
-- ~~ContractInspector.tsx~~
-- ~~DebugInfo.tsx~~
-- ~~AllowlistStatus.tsx~~
-
-## 📂 ドキュメント管理
-
-### 必要なドキュメント（保持）
-```
-docs/
-├── CLAUDE.md (本ファイル) - 管理方針
-├── INDEX.md - ドキュメント一覧
-├── ADMIN_GUIDE.md - 管理者ガイド
-├── TECHNICAL_SPEC.md - 技術仕様
-└── README.md - プロジェクト概要
-```
-
-### 削除対象ドキュメント
-```
-ルートディレクトリ（削除）：
-- FEATURE_VERIFICATION.md
-- INTEGRATION_CHECK.md
-- PERFORMANCE_OPTIMIZATION.md
-- TRANSACTION_ANALYSIS.md
-- IMPLEMENTATION_RECOMMENDATION.md
-- README_ADMIN.md
-- SYSTEM_INTEGRITY_ISSUES.md
-```
-
-## 🔧 トラブルシューティング
-
-### defaultTokenIdエラーの修正
+#### 開発環境
 ```bash
-# 整合性修正スクリプト
+cp .env.example .env.local
+# テスト用コントラクトアドレスを設定
+npm run dev
+```
+
+#### 本番環境
+```bash
+# Vercel環境変数に本番コントラクトアドレスを設定
+# 自動的にadmin-configが生成される
+```
+
+### 初回セットアップ
+1. 環境変数設定（.env.local）
+2. 管理パネルアクセス（/admin）
+3. 「同期」ボタンでThirdwebと同期
+4. プロジェクト設定を入力
+
+## ⚠️ トラブルシューティング
+
+### JSONファイルが存在しない場合
+- admin-config.json → 管理パネルの「同期」で自動生成
+- project-settings.json → 管理パネルの「設定を保存」で自動生成
+- local-settings.json → API呼び出し時に自動生成
+
+### defaultTokenIdエラー
+```bash
 node scripts/fix-token-integrity.js
 ```
 
 ### キャッシュクリア
 ```bash
 rm -rf .next
+rm -f default-token.json
 npm run dev
 ```
 
-### Thirdweb再同期
-```bash
-curl http://localhost:3000/api/admin/sync-tokens
-```
+## 📊 管理パネル機能
 
-## 🚀 開発フロー
+### 現在実装済み
+- ✅ トークン同期（Thirdweb）
+- ✅ 販売期間設定
+- ✅ 最大発行数管理
+- ✅ プロジェクト名・説明設定
+- ✅ 機能フラグ管理
 
-### 1. 変更前チェック
-```bash
-git status
-npm run build
-npm run lint
-```
+### 実装予定
+- ✅ テーマカラー設定（実装済み）
+- ✅ Favicon自動生成（実装済み）
+- ⏳ ロゴアップロード
+- ⏳ SEO設定
+- ⏳ 多言語テキスト編集
 
-### 2. 実装ルール
-- 既存ファイル編集を優先
-- admin-configからデータ取得
-- ハードコーディング禁止
-- エラーハンドリング必須
+## 🔒 セキュリティ
 
-### 3. テスト実行
-```bash
-npm run build
-npm run typecheck
-npm run dev  # localhost:3000で動作確認
-```
-
-### 4. コミット
-```bash
-git add .
-git commit -m "fix: 具体的な変更内容"
-```
-
-## ⚠️ 重要な注意事項
-
-### データフロー
-1. **Thirdweb** → **admin-config.json** (マスターデータ)
-2. **admin-config.json** → **local-settings.json** (ローカル設定)
-3. **local-settings.json** → **UIコンポーネント** (表示)
-
-### 設定変更時の手順
-1. Thirdwebダッシュボードで変更
-2. `/api/admin/sync-tokens` で同期
-3. local-settings.jsonが自動更新
-4. UIに即時反映
-
-### トークン情報の取得方法
+### アクセス制御
 ```typescript
-// 正しい方法
-import { getMergedTokenConfigs } from '@/lib/localSettings';
-const tokens = getMergedTokenConfigs();
-
-// 間違った方法
-const tokens = require('./tokens.json'); // ❌ ハードコーディング
+// 管理者アドレス（環境変数で設定）
+NEXT_PUBLIC_ADMIN_ADDRESSES=0x...,0x...
 ```
 
-## 📝 最近の問題と解決
+### データ検証
+- ClaimConditionの整合性チェック
+- Merkle Proof検証
+- アローリスト確認
 
-### 問題1: defaultTokenId=2が存在しない
-- **原因**: ハードコーディングされた設定
-- **解決**: admin-configから動的取得に変更
+## 📝 コード規約
 
-### 問題2: 「純金のパスポートNFT」が表示される
-- **原因**: project.config.jsとtokens.jsonにハードコーディング
-- **解決**: ファイル削除とadmin-config使用
+### インポート順序
+1. React/Next.js
+2. サードパーティライブラリ
+3. 内部モジュール
+4. 型定義
 
-### 問題3: 販売期間が機能しない
-- **原因**: saleStatus状態変数の未定義
-- **解決**: 適切な状態管理実装
+### 命名規則
+- コンポーネント: PascalCase
+- 関数: camelCase
+- 定数: UPPER_SNAKE_CASE
+- ファイル: kebab-case
 
-## 🔑 環境変数
+### コメント
+```typescript
+// ❌ 悪い例
+// ReZipangコントラクトに対応
 
-```env
-# 必須
-NEXT_PUBLIC_THIRDWEB_CLIENT_ID=xxx
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xc35E48fF072B48f0525ffDd32f0a763AAd6f00b1
-NEXT_PUBLIC_CHAIN_ID=137
-
-# オプション（admin-configから自動取得）
-# NEXT_PUBLIC_DEFAULT_TOKEN_ID=0
-# NEXT_PUBLIC_PAYMENT_TOKEN_ADDRESS=0x7B2d...
+// ✅ 良い例
+// ERC1155コントラクトのclaim関数を実行
 ```
 
-## 📊 システムアーキテクチャ
+## 🎯 チェックリスト
 
-```
-ユーザー
-  ↓
-Next.js App Router
-  ↓
-APIエンドポイント
-  ↓
-設定管理層
-  ├── admin-config.json (マスター)
-  └── local-settings.json (キャッシュ)
-  ↓
-Thirdweb SDK
-  ↓
-Polygon Network
-```
+### 新機能追加時
+- [ ] ハードコーディングなし
+- [ ] 管理パネルから設定可能
+- [ ] 環境変数で切り替え可能
+- [ ] 多言語対応
+- [ ] エラーハンドリング実装
+
+### デプロイ前
+- [ ] 環境変数確認
+- [ ] ビルドテスト実行
+- [ ] 管理パネル動作確認
+- [ ] ClaimCondition取得確認
+- [ ] 販売期間動作確認
 
 ---
 
-**最終更新**: 2025-08-27
-**バージョン**: 3.0.0
+## 🎯 最大発行数管理
+
+### 無制限販売の設定
+```json
+// local-settings.json
+{
+  "tokens": {
+    "0": {
+      "isUnlimited": true,  // 無制限販売を有効化
+      "maxSupply": undefined // 最大発行数は設定しない
+    }
+  }
+}
+```
+
+### 最大発行数の動作
+- `isUnlimited: true` の場合、ミント制限なし
+- `maxSupply` が設定されている場合、その数量まで販売
+- `getMaxSupplyConfig` が null を返す場合は無制限を意味
+
+## 🎨 Favicon管理
+
+### 自動生成機能
+- 管理パネルからプロジェクト名の頭文字を使用して自動生成
+- テーマカラー（背景色・文字色）を反映
+- 文字の縁取り設定も可能
+
+### API エンドポイント
+- `/api/favicon` - Faviconを配信
+- `/api/admin/generate-favicon` - Favicon生成
+- キャッシュバスティング: `?t=timestamp` パラメータで無効化
+
+**最終更新**: 2025-08-28
+**バージョン**: 4.1.0
 **管理者**: Claude AI Assistant
