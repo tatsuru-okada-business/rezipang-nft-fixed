@@ -233,8 +233,22 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
         if (token.currency) {
           setTokenCurrency(token.currency);
           console.log('Currency from admin-config:', token.currency);
+          
+          // 通貨に応じてERC20トークンアドレスを設定
+          if (token.currency === 'ZENY') {
+            // ZENYトークンのPolygonアドレス
+            setCurrencyAddress('0x0a3A21356793B49154Fd3BbE91CBc2A16c0457f5');
+          } else if (token.currency === 'USDC') {
+            // USDCのPolygonアドレス
+            setCurrencyAddress('0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359');
+          } else {
+            // その他の場合はnativeトークン
+            setCurrencyAddress(null);
+          }
         } else {
           console.warn('No currency in token data:', token);
+          setTokenCurrency('ZENY');
+          setCurrencyAddress('0x0a3A21356793B49154Fd3BbE91CBc2A16c0457f5');
         }
         setSalesPeriod({
           enabled: token.salesPeriodEnabled || false,
@@ -722,9 +736,10 @@ function SimpleMintComponent({ locale = "en" }: SimpleMintProps) {
       // ClaimCondition検証をスキップ（admin-configを信頼）
 
       // ERC20トークン支払いの場合の処理（admin-configの値を使用）
+      // ZENYはERC20トークンとして扱う（currencyAddressがある場合）
       const isERC20Payment = finalCurrencyAddress && 
         finalCurrencyAddress !== '0x0000000000000000000000000000000000000000' && 
-        finalTokenCurrency && finalTokenCurrency !== 'POL';
+        finalCurrencyAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
       
       if (isERC20Payment) {
         const paymentToken = getContract({
