@@ -1,6 +1,6 @@
 {
   "contractAddress": "0xeEb45AD49C073b0493B7104c8975ac7eaF8d003E",
-  "lastSync": "2025-08-28T13:12:03.491Z",
+  "lastSync": "2025-08-28T13:46:11.861Z",
   "tokens": [
     {
       "thirdweb": {
@@ -22,7 +22,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": false,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.481Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -45,7 +45,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.484Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -68,7 +68,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.484Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -91,7 +91,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.485Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -114,7 +114,7 @@
         "salesPeriodEnabled": true,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.485Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -136,7 +136,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.485Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -158,7 +158,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.485Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -180,7 +180,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.485Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -203,7 +203,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.486Z"
+        "lastSyncTime": "2025-08-28T13:46:11.860Z"
       }
     },
     {
@@ -225,7 +225,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -247,7 +247,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -269,7 +269,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -291,7 +291,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -313,7 +313,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -335,7 +335,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -358,7 +358,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -381,7 +381,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -403,7 +403,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -425,7 +425,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     },
     {
@@ -447,7 +447,7 @@
         "salesPeriodEnabled": false,
         "isUnlimited": true,
         "totalMinted": 0,
-        "lastSyncTime": "2025-08-28T13:12:03.489Z"
+        "lastSyncTime": "2025-08-28T13:46:11.861Z"
       }
     }
   ]

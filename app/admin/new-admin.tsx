@@ -583,6 +583,87 @@ export default function NewAdminPanel() {
                 </div>
 
                 {/* 最大発行数設定 */}
+                {/* CSVアローリスト管理 */}
+                <div className="bg-gray-900 rounded p-4 mb-4">
+                  <h4 className="text-md font-semibold text-green-400 mb-3">
+                    アローリスト管理（CSV）
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">
+                        CSVファイルアップロード
+                      </label>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('tokenId', selectedToken.thirdweb.tokenId.toString());
+                          
+                          try {
+                            const response = await fetch('/api/admin/upload-allowlist', {
+                              method: 'POST',
+                              headers: {
+                                'X-Admin-Address': account?.address || '',
+                              },
+                              body: formData,
+                            });
+                            
+                            const data = await response.json();
+                            if (data.success) {
+                              alert(`アローリストをアップロードしました。\n登録アドレス数: ${data.stats.totalAddresses}`);
+                            } else {
+                              alert(`エラー: ${data.error}`);
+                            }
+                          } catch (error) {
+                            console.error('Upload error:', error);
+                            alert('アップロードに失敗しました');
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 text-white rounded text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        CSVフォーマット: address,maxMintAmount (ヘッダー行必須)
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/admin/upload-allowlist?tokenId=${selectedToken.thirdweb.tokenId}`);
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `allowlist-token-${selectedToken.thirdweb.tokenId}.csv`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                            } else {
+                              alert('アローリストが見つかりません');
+                            }
+                          } catch (error) {
+                            console.error('Download error:', error);
+                            alert('ダウンロードに失敗しました');
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                      >
+                        現在のアローリストをダウンロード
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 最大発行数管理 */}
                 <div className="bg-gray-900 rounded p-4">
                   <h4 className="text-md font-semibold text-yellow-400 mb-3">
                     最大発行数管理
