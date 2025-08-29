@@ -1,4 +1,27 @@
-import { kv } from '@vercel/kv';
+// Vercel KVまたはRedisを使用
+import { createClient } from 'redis';
+
+// Redis/KVクライアントの初期化
+const getRedisClient = async () => {
+  const redisUrl = process.env.REDIS_URL || process.env.KV_URL;
+  
+  if (!redisUrl) {
+    console.log('Redis/KV not configured');
+    return null;
+  }
+  
+  try {
+    const client = createClient({
+      url: redisUrl
+    });
+    
+    await client.connect();
+    return client;
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    return null;
+  }
+};
 
 // KVストレージのキー定義
 export const KV_KEYS = {
@@ -11,8 +34,13 @@ export const KV_KEYS = {
 // トークンキャッシュの取得
 export async function getTokensCache(): Promise<any | null> {
   try {
-    const data = await kv.get(KV_KEYS.TOKENS_CACHE);
-    return data || null;
+    const client = await getRedisClient();
+    if (!client) return null;
+    
+    const data = await client.get(KV_KEYS.TOKENS_CACHE);
+    await client.disconnect();
+    
+    return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error('Failed to get tokens cache from KV:', error);
     return null;
@@ -22,7 +50,12 @@ export async function getTokensCache(): Promise<any | null> {
 // トークンキャッシュの保存
 export async function setTokensCache(data: any) {
   try {
-    await kv.set(KV_KEYS.TOKENS_CACHE, data);
+    const client = await getRedisClient();
+    if (!client) return false;
+    
+    await client.set(KV_KEYS.TOKENS_CACHE, JSON.stringify(data));
+    await client.disconnect();
+    
     return true;
   } catch (error) {
     console.error('Failed to set tokens cache to KV:', error);
@@ -33,8 +66,13 @@ export async function setTokensCache(data: any) {
 // 設定の取得
 export async function getSettings() {
   try {
-    const data = await kv.get(KV_KEYS.SETTINGS);
-    return data || null;
+    const client = await getRedisClient();
+    if (!client) return null;
+    
+    const data = await client.get(KV_KEYS.SETTINGS);
+    await client.disconnect();
+    
+    return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error('Failed to get settings from KV:', error);
     return null;
@@ -44,7 +82,12 @@ export async function getSettings() {
 // 設定の保存
 export async function setSettings(data: any) {
   try {
-    await kv.set(KV_KEYS.SETTINGS, data);
+    const client = await getRedisClient();
+    if (!client) return false;
+    
+    await client.set(KV_KEYS.SETTINGS, JSON.stringify(data));
+    await client.disconnect();
+    
     return true;
   } catch (error) {
     console.error('Failed to set settings to KV:', error);
@@ -55,8 +98,13 @@ export async function setSettings(data: any) {
 // 管理設定の取得
 export async function getAdminConfig() {
   try {
-    const data = await kv.get(KV_KEYS.ADMIN_CONFIG);
-    return data || null;
+    const client = await getRedisClient();
+    if (!client) return null;
+    
+    const data = await client.get(KV_KEYS.ADMIN_CONFIG);
+    await client.disconnect();
+    
+    return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error('Failed to get admin config from KV:', error);
     return null;
@@ -66,7 +114,12 @@ export async function getAdminConfig() {
 // 管理設定の保存
 export async function setAdminConfig(data: any) {
   try {
-    await kv.set(KV_KEYS.ADMIN_CONFIG, data);
+    const client = await getRedisClient();
+    if (!client) return false;
+    
+    await client.set(KV_KEYS.ADMIN_CONFIG, JSON.stringify(data));
+    await client.disconnect();
+    
     return true;
   } catch (error) {
     console.error('Failed to set admin config to KV:', error);
