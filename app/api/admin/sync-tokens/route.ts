@@ -19,14 +19,28 @@ export async function GET(req: Request) {
     // Thirdwebから全トークン情報を取得
     const thirdwebTokens = await fetchAllTokensFromThirdweb(contractAddress);
     
-    // ローカル設定を読み込み
-    const localSettings = loadLocalSettings();
+    // ローカル設定を読み込み（エラーハンドリング付き）
+    let localSettings;
+    try {
+      localSettings = loadLocalSettings();
+    } catch (error) {
+      console.error('Failed to load local settings:', error);
+      // 空のMapを返す
+      localSettings = new Map();
+    }
     
     // データを統合
     const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
     
-    // 保存
-    saveLocalSettings(managedTokens);
+    // Vercel環境ではファイル書き込みができないため、
+    // ローカル開発環境でのみ保存を試みる
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        saveLocalSettings(managedTokens);
+      } catch (error) {
+        console.error('Failed to save settings (expected in production):', error);
+      }
+    }
     
     // フィルタリング: 汎用名でないトークンのみ
     const filteredTokens = managedTokens.filter(token => {

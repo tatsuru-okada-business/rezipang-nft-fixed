@@ -14,11 +14,13 @@
     "reset-config": "rm -f admin-config.json local-settings.json default-token.json && echo 'Config files reset'"
   },
   "dependencies": {
+    "@vercel/kv": "^3.0.0",
     "csv-parse": "^6.1.0",
     "merkletreejs": "^0.5.2",
     "next": "15.4.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "redis": "^5.8.2",
     "thirdweb": "^5.105.35",
     "viem": "^2.35.1"
   },

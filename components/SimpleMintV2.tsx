@@ -487,29 +487,39 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
           </div>
 
           {/* アローリスト状態 */}
-          {isAllowlisted !== null && (
-            <div className="mt-4">
-              {isAllowlisted ? (
-                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-center">
-                  <span className="font-semibold">
+          <div className="mt-4">
+            {isAllowlisted === null ? (
+              <div className="bg-purple-50 border border-purple-200 px-4 py-3 rounded-lg text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                  <span className="font-semibold text-purple-700">
                     {locale === "ja" 
-                      ? `✅ アローリストに登録されています（最大${maxMintAmount}枚）`
-                      : `✅ You are allowlisted (Max ${maxMintAmount} NFTs)`
+                      ? "発行可能枚数を確認中..."
+                      : "Checking minting eligibility..."
                     }
                   </span>
                 </div>
-              ) : (
-                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-center">
-                  <span className="font-semibold">
-                    {locale === "ja" 
+              </div>
+            ) : isAllowlisted ? (
+              <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-center">
+                <span className="font-semibold">
+                  {locale === "ja" 
+                    ? `✅ アローリストに登録されています（最大${maxMintAmount}枚）`
+                    : `✅ You are allowlisted (Max ${maxMintAmount} NFTs)`
+                  }
+                </span>
+              </div>
+            ) : (
+              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-center">
+                <span className="font-semibold">
+                  {locale === "ja" 
                       ? "❌ アローリストに登録されていません（ミント不可）"
                       : "❌ You are not allowlisted (Cannot mint)"
                     }
                   </span>
                 </div>
-              )}
+            )}
           </div>
-        )}
 
           {/* 数量選択セクション */}
           <div className="mt-6 space-y-4">
@@ -521,7 +531,7 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
                 <button
                   type="button"
                   onClick={() => quantity > 0 && setQuantity(quantity - 1)}
-                  disabled={quantity <= 0 || !isAllowlisted}
+                  disabled={quantity <= 0 || isAllowlisted === null || !isAllowlisted}
                   className="w-10 h-10 rounded-full bg-purple-100 hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-purple-700"
                 >
                   -
@@ -530,7 +540,7 @@ export function SimpleMint({ locale = "en" }: SimpleMintProps) {
                 <button
                   type="button"
                   onClick={() => quantity < maxMintAmount && setQuantity(quantity + 1)}
-                  disabled={quantity >= maxMintAmount || !isAllowlisted}
+                  disabled={quantity >= maxMintAmount || isAllowlisted === null || !isAllowlisted}
                   className="w-10 h-10 rounded-full bg-purple-100 hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-purple-700"
                 >
                   +

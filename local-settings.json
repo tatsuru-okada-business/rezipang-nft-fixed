@@ -1,0 +1,14 @@
+{
+  "defaultTokenId": 0,
+  "tokens": {
+    "4": {
+      "tokenId": 4,
+      "displayEnabled": true,
+      "displayOrder": 4,
+      "salesPeriodEnabled": true,
+      "isUnlimited": true,
+      "totalMinted": 0
+    }
+  },
+  "lastUpdated": "2025-08-29T09:14:25.756Z"
+}

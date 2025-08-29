@@ -4,6 +4,7 @@ import { detectAvailableTokens, fetchMultipleTokenMetadata, type TokenMetadata }
 import { getMergedTokenConfigs } from '@/lib/localSettings';
 import { withCache } from '@/lib/cache';
 import { resolveCurrencyAddress, getCurrencyDecimals, isCurrencyNative, getCurrencySymbol } from '@/lib/currencyUtils';
+import { getTokensCache } from '@/lib/kv-storage';
 
 export async function GET(request: Request) {
   try {
@@ -14,7 +15,70 @@ export async function GET(request: Request) {
     // ソースに応じてトークン情報を取得
     let tokens: TokenMetadata[] = [];
     
-    // Use merged config (admin-config.json + local-settings.json)
+    // まずKVから読み込みを試みる
+    const kvCache = await getTokensCache();
+    if (kvCache) {
+      console.log('Using tokens from KV storage');
+      const cachedTokens = kvCache.tokens || [];
+      
+      // 特定のトークンIDが指定されている場合
+      if (tokenId !== null) {
+        const targetToken = cachedTokens.find((t: any) => t.tokenId === parseInt(tokenId));
+        if (targetToken) {
+          const currencyAddress = resolveCurrencyAddress(targetToken.currency || targetToken.currencySymbol);
+          const currencySymbol = getCurrencySymbol(currencyAddress);
+          
+          tokens = [{
+            id: targetToken.tokenId,
+            name: targetToken.name,
+            description: targetToken.description,
+            image: targetToken.image,
+            price: targetToken.price,
+            currency: currencyAddress,
+            currencySymbol: currencySymbol || targetToken.currencySymbol,
+            currencyDecimals: getCurrencyDecimals(targetToken.currency || targetToken.currencySymbol),
+            currencyIsNative: isCurrencyNative(targetToken.currency || targetToken.currencySymbol),
+            totalSupply: targetToken.totalSupply,
+            attributes: []
+          }];
+          return NextResponse.json({ tokens }, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
+            }
+          });
+        }
+      }
+      
+      // 全トークンを返す
+      tokens = cachedTokens.map((token: any) => {
+        const currencyAddress = resolveCurrencyAddress(token.currency || token.currencySymbol);
+        const currencySymbol = getCurrencySymbol(currencyAddress);
+        
+        return {
+          id: token.tokenId,
+          name: token.name,
+          description: token.description,
+          image: token.image,
+          price: token.price,
+          currency: currencyAddress,
+          currencySymbol: currencySymbol || token.currencySymbol,
+          currencyDecimals: getCurrencyDecimals(token.currency || token.currencySymbol),
+          currencyIsNative: isCurrencyNative(token.currency || token.currencySymbol),
+          totalSupply: token.totalSupply,
+          attributes: []
+        };
+      });
+      
+      if (tokens.length > 0) {
+        return NextResponse.json({ tokens }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+          }
+        });
+      }
+    }
+    
+    // KVから取得できない場合は従来の方法を使用
     try {
       const mergedTokens = getMergedTokenConfigs();
       
