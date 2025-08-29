@@ -1,27 +1,35 @@
 import { NextResponse } from 'next/server';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getTokensCache, getSettings } from '@/lib/kv-storage';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // tokens-cache.jsonとsettings.jsonから読み込み
-    const tokensCachePath = join(process.cwd(), 'tokens-cache.json');
-    const settingsPath = join(process.cwd(), 'settings.json');
+    // KVから読み込み（フォールバック：ローカルファイル）
+    let tokensCache = await getTokensCache();
+    let settings = await getSettings();
     
-    if (!existsSync(tokensCachePath)) {
-      return NextResponse.json({
-        tokens: [],
-        lastSync: null
-      });
+    // KVにデータがない場合はローカルファイルから読み込み
+    if (!tokensCache) {
+      const tokensCachePath = join(process.cwd(), 'tokens-cache.json');
+      if (!existsSync(tokensCachePath)) {
+        return NextResponse.json({
+          tokens: [],
+          lastSync: null
+        });
+      }
+      tokensCache = JSON.parse(readFileSync(tokensCachePath, 'utf-8'));
     }
     
-    const tokensCache = JSON.parse(readFileSync(tokensCachePath, 'utf-8'));
-    let settings: any = {};
-    
-    if (existsSync(settingsPath)) {
-      settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    if (!settings) {
+      const settingsPath = join(process.cwd(), 'settings.json');
+      if (existsSync(settingsPath)) {
+        settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      } else {
+        settings = {};
+      }
     }
     
     // tokens-cacheとsettingsをマージして返す

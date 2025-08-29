@@ -28,7 +28,8 @@ export const KV_KEYS = {
   TOKENS_CACHE: 'tokens-cache',
   SETTINGS: 'settings',
   ADMIN_CONFIG: 'admin-config',
-  LOCAL_SETTINGS: 'local-settings'
+  LOCAL_SETTINGS: 'local-settings',
+  ALLOWLIST: 'allowlist'
 } as const;
 
 // トークンキャッシュの取得
@@ -127,6 +128,38 @@ export async function setAdminConfig(data: any) {
   }
 }
 
+// アローリストの取得
+export async function getAllowlist(): Promise<string | null> {
+  try {
+    const client = await getRedisClient();
+    if (!client) return null;
+    
+    const data = await client.get(KV_KEYS.ALLOWLIST);
+    await client.disconnect();
+    
+    return data;
+  } catch (error) {
+    console.error('Failed to get allowlist from KV:', error);
+    return null;
+  }
+}
+
+// アローリストの保存
+export async function setAllowlist(data: string) {
+  try {
+    const client = await getRedisClient();
+    if (!client) return false;
+    
+    await client.set(KV_KEYS.ALLOWLIST, data);
+    await client.disconnect();
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to set allowlist to KV:', error);
+    return false;
+  }
+}
+
 // 初期データの移行（ファイルからKVへ）
 export async function migrateToKV() {
   try {
@@ -147,6 +180,14 @@ export async function migrateToKV() {
       const data = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       await setSettings(data);
       console.log('Migrated settings.json to KV');
+    }
+    
+    // allowlist.csvを移行
+    const allowlistPath = path.join(process.cwd(), 'allowlist.csv');
+    if (fs.existsSync(allowlistPath)) {
+      const data = fs.readFileSync(allowlistPath, 'utf-8');
+      await setAllowlist(data);
+      console.log('Migrated allowlist.csv to KV');
     }
     
     return true;

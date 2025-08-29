@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { fetchAllTokensFromThirdweb } from '@/lib/thirdwebSync';
 import { loadLocalSettings, mergeTokenData, saveLocalSettings } from '@/lib/localTokenSettings';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { getSettings, setSettings, getTokensCache, setTokensCache } from '@/lib/kv-storage';
 
 // Thirdwebと同期して全トークン情報を取得
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
     
@@ -19,26 +18,44 @@ export async function GET(req: Request) {
     // Thirdwebから全トークン情報を取得
     const thirdwebTokens = await fetchAllTokensFromThirdweb(contractAddress);
     
-    // ローカル設定を読み込み（エラーハンドリング付き）
-    let localSettings;
+    // ローカル設定を読み込み（KV優先、フォールバック：ローカルファイル）
+    let localSettings: Map<number, any>;
     try {
-      localSettings = loadLocalSettings();
+      const kvSettings = await getSettings();
+      if (kvSettings && kvSettings.tokens) {
+        // KVの設定をMapに変換（キーをnumberに変換）
+        localSettings = new Map(
+          Object.entries(kvSettings.tokens).map(([key, value]) => [Number(key), value])
+        );
+      } else {
+        localSettings = loadLocalSettings();
+      }
     } catch (error) {
-      console.error('Failed to load local settings:', error);
-      // 空のMapを返す
+      console.error('Failed to load settings:', error);
       localSettings = new Map();
     }
     
     // データを統合
     const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
     
-    // Vercel環境ではファイル書き込みができないため、
-    // ローカル開発環境でのみ保存を試みる
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        saveLocalSettings(managedTokens);
-      } catch (error) {
-        console.error('Failed to save settings (expected in production):', error);
+    // KVに保存
+    try {
+      const settingsData = {
+        tokens: Object.fromEntries(
+          Array.from(localSettings).map(([id, settings]) => [id, settings])
+        ),
+        lastUpdated: new Date().toISOString()
+      };
+      await setSettings(settingsData);
+    } catch (error) {
+      console.error('Failed to save to KV:', error);
+      // ローカル開発環境でのみファイル保存を試みる
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          saveLocalSettings(managedTokens);
+        } catch (e) {
+          console.error('Failed to save locally:', e);
+        }
       }
     }
     
@@ -49,13 +66,6 @@ export async function GET(req: Request) {
     
     // デバッグ: フィルタリング後のトークン情報
     console.log('Filtered tokens count:', filteredTokens.length);
-    filteredTokens.forEach(token => {
-      console.log(`Token ${token.thirdweb.tokenId}:`, {
-        name: token.thirdweb.name,
-        hasImage: !!token.thirdweb.image,
-        imageUrl: token.thirdweb.image?.substring(0, 50) + '...',
-      });
-    });
     
     // BigIntを文字列に変換してからJSONレスポンスを返す
     const serializedTokens = filteredTokens.map(token => ({
@@ -65,9 +75,6 @@ export async function GET(req: Request) {
         totalSupply: token.thirdweb.totalSupply?.toString() || '0',
       }
     }));
-    
-    // 同期後のdefaultTokenId検証
-    // validateDefaultTokenAfterSync();
     
     return NextResponse.json({
       success: true,
@@ -104,30 +111,51 @@ export async function POST(req: Request) {
       if (thirdwebTokens.length === 0) {
         console.warn('No tokens fetched from Thirdweb, keeping existing configuration');
         // 既存の設定を読み込んで返す
-        const adminConfigPath = join(process.cwd(), 'admin-config.json');
-        if (existsSync(adminConfigPath)) {
-          const adminConfig = JSON.parse(readFileSync(adminConfigPath, 'utf-8'));
+        const kvTokens = await getTokensCache();
+        if (kvTokens && kvTokens.tokens) {
           return NextResponse.json({
             success: false,
             error: 'No tokens fetched from Thirdweb. Keeping existing configuration.',
-            tokens: adminConfig.tokens || [],
+            tokens: kvTokens.tokens || [],
             tokensSynced: 0
           });
         }
       }
       
-      const localSettings = loadLocalSettings();
-      const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
-      saveLocalSettings(managedTokens);
+      // 設定を読み込み
+      let localSettings: Map<number, any>;
+      const kvSettings = await getSettings();
+      if (kvSettings && kvSettings.tokens) {
+        // Object.entriesはstring型のキーを返すので、numberに変換
+        localSettings = new Map(
+          Object.entries(kvSettings.tokens).map(([key, value]) => [Number(key), value])
+        );
+      } else {
+        localSettings = loadLocalSettings();
+      }
       
-      // admin-config.jsonに同期時刻を記録
-      const adminConfigPath = join(process.cwd(), 'admin-config.json');
-      const adminConfig = existsSync(adminConfigPath) 
-        ? JSON.parse(readFileSync(adminConfigPath, 'utf-8'))
-        : {};
-      adminConfig.lastSync = new Date().toISOString();
-      adminConfig.initialized = true;
-      writeFileSync(adminConfigPath, JSON.stringify(adminConfig, null, 2));
+      const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
+      
+      // KVに保存
+      const settingsData = {
+        tokens: Object.fromEntries(
+          managedTokens.map(token => [
+            token.thirdweb.tokenId,
+            token.local
+          ])
+        ),
+        lastUpdated: new Date().toISOString(),
+        lastSync: new Date().toISOString()
+      };
+      await setSettings(settingsData);
+      
+      // トークンキャッシュも更新
+      const tokensCache = {
+        tokens: thirdwebTokens,
+        lastSync: new Date().toISOString(),
+        contractAddress
+      };
+      await setTokensCache(tokensCache);
       
       const filteredTokens = managedTokens.filter(token => 
         !token.thirdweb.name.match(/^Token #\d+$/)
@@ -157,68 +185,43 @@ export async function POST(req: Request) {
       );
     }
 
-    // local-settings.jsonを直接更新（Thirdweb再取得なし）
-    const localSettingsPath = join(process.cwd(), 'local-settings.json');
-    
-    // default-token.jsonからデフォルトトークンIDを取得
-    let defaultTokenId = 0;
-    const defaultTokenPath = join(process.cwd(), 'default-token.json');
-    if (existsSync(defaultTokenPath)) {
-      try {
-        const defaultData = JSON.parse(readFileSync(defaultTokenPath, 'utf-8'));
-        defaultTokenId = defaultData.tokenId ?? 0;
-      } catch (e) {
-        // エラーの場合は0を使用
-      }
-    }
-    
-    let localSettingsData: any = {
-      defaultTokenId: defaultTokenId,
+    // 個別トークン設定の更新
+    let settingsData = await getSettings() || {
       tokens: {},
       lastUpdated: new Date().toISOString()
     };
     
-    // 既存の設定を読み込み
-    if (existsSync(localSettingsPath)) {
-      const content = readFileSync(localSettingsPath, 'utf-8');
-      localSettingsData = JSON.parse(content);
-      // default-token.jsonの値を優先
-      localSettingsData.defaultTokenId = defaultTokenId;
-    }
-    
     // 指定されたトークンのみ更新
-    localSettingsData.tokens[tokenId] = {
-      ...localSettingsData.tokens[tokenId] || {},
+    settingsData.tokens[tokenId] = {
+      ...settingsData.tokens[tokenId] || {},
       ...settings,
       tokenId // tokenIdは保持
     };
-    localSettingsData.lastUpdated = new Date().toISOString();
+    settingsData.lastUpdated = new Date().toISOString();
     
-    // 保存
-    writeFileSync(localSettingsPath, JSON.stringify(localSettingsData, null, 2));
+    // KVに保存
+    await setSettings(settingsData);
     
     // デフォルトトークン設定の更新
     if (settings.isDefaultDisplay) {
-      const defaultTokenPath = join(process.cwd(), 'default-token.json');
-      writeFileSync(defaultTokenPath, JSON.stringify({ tokenId }, null, 2));
-    } else {
-      // デフォルト設定が解除された場合、現在のdefault-token.jsonをチェック
-      const defaultTokenPath = join(process.cwd(), 'default-token.json');
-      try {
-        const currentDefault = JSON.parse(readFileSync(defaultTokenPath, 'utf-8'));
-        // 現在のトークンがデフォルトだった場合のみクリア
-        if (currentDefault.tokenId === tokenId) {
-          writeFileSync(defaultTokenPath, JSON.stringify({ tokenId: 0 }, null, 2));
+      // 他のトークンのデフォルト設定を解除
+      Object.keys(settingsData.tokens).forEach(id => {
+        if (id !== tokenId.toString()) {
+          settingsData.tokens[id].isDefaultDisplay = false;
         }
-      } catch {
-        // ファイルが存在しない場合は何もしない
-      }
+      });
+      settingsData.defaultTokenId = tokenId;
+      await setSettings(settingsData);
+    } else if (settingsData.defaultTokenId === tokenId) {
+      // 現在のトークンがデフォルトだった場合のみクリア
+      settingsData.defaultTokenId = 0;
+      await setSettings(settingsData);
     }
     
     return NextResponse.json({
       success: true,
       tokenId,
-      settings: localSettingsData.tokens[tokenId],
+      settings: settingsData.tokens[tokenId],
     });
   } catch (error) {
     console.error('Error updating settings:', error);

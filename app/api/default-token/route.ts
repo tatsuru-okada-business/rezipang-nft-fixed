@@ -3,16 +3,24 @@ import { getMergedTokenConfigs } from '@/lib/localSettings';
 import { isInSalesPeriod } from '@/lib/formatPrice';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getSettings, setSettings } from '@/lib/kv-storage';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // settings.jsonからdefaultTokenIdを取得
-    const settingsPath = join(process.cwd(), 'settings.json');
+    // KVまたはsettings.jsonからdefaultTokenIdを取得
     let defaultTokenId = 0;
     
-    if (existsSync(settingsPath)) {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      defaultTokenId = settings.defaultTokenId ?? 0;
+    // KVから取得
+    const kvSettings = await getSettings();
+    if (kvSettings && kvSettings.defaultTokenId !== undefined) {
+      defaultTokenId = kvSettings.defaultTokenId;
+    } else {
+      // フォールバック：ローカルファイル
+      const settingsPath = join(process.cwd(), 'settings.json');
+      if (existsSync(settingsPath)) {
+        const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+        defaultTokenId = settings.defaultTokenId ?? 0;
+      }
     }
     
     const mergedTokens = getMergedTokenConfigs();
@@ -72,16 +80,17 @@ export async function POST(req: Request) {
       );
     }
     
-    // settings.jsonを更新
-    const settingsPath = join(process.cwd(), 'settings.json');
-    let settings = { tokens: {}, defaultTokenId: 0 };
-    
-    if (existsSync(settingsPath)) {
-      settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-    }
-    
+    // KVに保存（フォールバック：ローカルファイル）
+    let settings = await getSettings() || { tokens: {}, defaultTokenId: 0 };
     settings.defaultTokenId = tokenId;
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    
+    const success = await setSettings(settings);
+    
+    // KVへの保存が失敗した場合、ローカルファイルに保存（開発環境のみ）
+    if (!success && process.env.NODE_ENV === 'development') {
+      const settingsPath = join(process.cwd(), 'settings.json');
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    }
     
     return NextResponse.json({ success: true, tokenId });
   } catch (error) {

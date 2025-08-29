@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { getAllowlist, getTokensCache } from "@/lib/kv-storage";
 
 interface AllowlistEntry {
   address: string;
@@ -8,8 +9,15 @@ interface AllowlistEntry {
 }
 
 // トークンごとのCSVアローリストを読み込む
-function loadTokenAllowlist(tokenId: number): AllowlistEntry[] {
+async function loadTokenAllowlist(tokenId: number): Promise<AllowlistEntry[]> {
   try {
+    // まずKVから取得を試みる
+    const kvAllowlist = await getAllowlist();
+    if (kvAllowlist) {
+      return parseCSV(kvAllowlist);
+    }
+    
+    // KVにない場合はファイルから読み込み
     const filePath = join(process.cwd(), 'allowlists', `token-${tokenId}`, 'allowlist.csv');
     
     if (!existsSync(filePath)) {
@@ -75,10 +83,18 @@ export async function POST(request: NextRequest) {
     let tokenInfo: any = null;
     
     try {
-      // tokens-cache.jsonから価格と通貨情報を取得
-      const tokensCachePath = join(process.cwd(), 'tokens-cache.json');
-      if (existsSync(tokensCachePath)) {
-        const tokensCache = JSON.parse(readFileSync(tokensCachePath, 'utf-8'));
+      // KVまたはファイルから価格と通貨情報を取得
+      let tokensCache = await getTokensCache();
+      
+      if (!tokensCache) {
+        // フォールバック：ローカルファイル
+        const tokensCachePath = join(process.cwd(), 'tokens-cache.json');
+        if (existsSync(tokensCachePath)) {
+          tokensCache = JSON.parse(readFileSync(tokensCachePath, 'utf-8'));
+        }
+      }
+      
+      if (tokensCache) {
         const cachedToken = tokensCache.tokens?.find((t: any) => t.tokenId === tokenId);
         if (cachedToken) {
           tokenInfo = {
@@ -93,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
     
     // トークンごとのアローリストをチェック
-    const allowlist = loadTokenAllowlist(tokenId);
+    const allowlist = await loadTokenAllowlist(tokenId);
     const entry = allowlist.find(e => e.address === normalizedAddress);
     
     if (entry) {
