@@ -155,9 +155,7 @@ export function MintControls({ locale = "en" }: MintControlsProps) {
   };
 
   const totalCost = Number(mintPrice) * quantity;
-  const currencySymbol = chain.id === 137 ? "POL" : 
-                        chain.id === 1 ? "ETH" : 
-                        chain.id === 11155111 ? "SepoliaETH" : "ETH";
+  const currencySymbol = "ZENY"; // 強制的にZENY表示
 
   if (!account) {
     return (

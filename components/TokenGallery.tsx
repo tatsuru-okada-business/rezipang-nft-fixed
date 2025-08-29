@@ -168,14 +168,22 @@ export function TokenGallery({ onTokenSelect, selectedTokenId, locale = "en" }: 
               )}
               
               {inSalesPeriod ? (
-                token.price && token.price !== "0" && (
+                token.price === undefined || token.price === null ? (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {locale === "ja" ? "価格読込中..." : "Loading price..."}
+                  </p>
+                ) : token.currencySymbol ? (
                   <p className="text-sm font-bold text-purple-600 mt-1">
-                    {formatPrice(token.price, token.currency || "POL")} {token.currency || "POL"}
+                    {formatPrice(token.price, token.currency || '')} {token.currencySymbol}
+                  </p>
+                ) : (
+                  <p className="text-sm font-bold text-purple-600 mt-1">
+                    {formatPrice(token.price, token.currency || '')}
                   </p>
                 )
               ) : (
                 <p className="text-sm font-bold text-gray-400 mt-1">
-                  - {token.currency || "POL"}
+                  {locale === "ja" ? "販売終了" : "Sale Ended"}
                 </p>
               )}
             </div>

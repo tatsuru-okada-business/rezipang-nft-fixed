@@ -1,67 +1,67 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { LocalSettings, MergedTokenConfig } from './types/localSettings';
-import type { AdminConfiguration } from './types/adminConfig';
 
-const LOCAL_SETTINGS_PATH = join(process.cwd(), 'local-settings.json');
-const ADMIN_CONFIG_PATH = join(process.cwd(), 'admin-config.json');
+const SETTINGS_PATH = join(process.cwd(), 'settings.json');
+const TOKENS_CACHE_PATH = join(process.cwd(), 'tokens-cache.json');
 
 // Load local settings
-export function loadLocalSettings(): LocalSettings | null {
+export function loadLocalSettings(): any {
   try {
-    if (existsSync(LOCAL_SETTINGS_PATH)) {
-      const content = readFileSync(LOCAL_SETTINGS_PATH, 'utf-8');
+    if (existsSync(SETTINGS_PATH)) {
+      const content = readFileSync(SETTINGS_PATH, 'utf-8');
       return JSON.parse(content);
     }
   } catch (error) {
-    console.error('Error loading local settings:', error);
+    console.error('Error loading settings:', error);
   }
-  return null;
+  return { tokens: {}, defaultTokenId: 0 };
 }
 
 // Save local settings
-export function saveLocalSettings(settings: LocalSettings): void {
+export function saveLocalSettings(settings: any): void {
   try {
-    writeFileSync(LOCAL_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+    writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
   } catch (error) {
-    console.error('Error saving local settings:', error);
+    console.error('Error saving settings:', error);
   }
 }
 
-// Merge admin config with local settings
+// Merge tokens-cache with settings
 export function getMergedTokenConfigs(): MergedTokenConfig[] {
   try {
-    // Load admin config
-    if (!existsSync(ADMIN_CONFIG_PATH)) {
+    // Load tokens cache
+    if (!existsSync(TOKENS_CACHE_PATH)) {
       return [];
     }
     
-    const adminContent = readFileSync(ADMIN_CONFIG_PATH, 'utf-8');
-    const adminConfig: AdminConfiguration = JSON.parse(adminContent);
+    const tokensContent = readFileSync(TOKENS_CACHE_PATH, 'utf-8');
+    const tokensCache = JSON.parse(tokensContent);
     
-    // Load local settings
-    const localSettings = loadLocalSettings();
+    // Load settings
+    const settings = loadLocalSettings();
     
     // Merge configs
-    return adminConfig.tokens.map(token => {
-      const localConfig = localSettings?.tokens[token.thirdweb.tokenId.toString()] || {};
+    return tokensCache.tokens.map((token: any) => {
+      const localConfig = settings?.tokens?.[token.tokenId.toString()] || {};
       
       return {
-        // Thirdweb data
-        tokenId: token.thirdweb.tokenId,
-        name: localConfig.customName || token.thirdweb.name,
-        totalSupply: token.thirdweb.totalSupply || '0',
-        uri: token.thirdweb.uri || '',
-        image: token.thirdweb.image || '',
-        description: localConfig.customDescription || token.thirdweb.description || '',
-        currentPrice: token.thirdweb.currentPrice || localConfig.customPrice || '0',
-        currency: token.thirdweb.currency || '',
-        merkleRoot: token.thirdweb.merkleRoot,
-        claimConditionActive: token.thirdweb.claimConditionActive,
+        // Token data from cache
+        tokenId: token.tokenId,
+        name: localConfig.customName || token.name,
+        totalSupply: token.totalSupply || '0',
+        uri: token.uri || '',
+        image: token.image || '',
+        description: localConfig.customDescription || token.description || '',
+        currentPrice: token.price || localConfig.customPrice || '0',
+        price: token.price || localConfig.customPrice || '0',
+        currency: token.currency || '',
+        merkleRoot: token.merkleRoot,
+        claimConditionActive: token.claimConditionActive,
         
         // Local settings
         displayEnabled: localConfig.displayEnabled ?? true,
-        displayOrder: localConfig.displayOrder ?? token.thirdweb.tokenId,
+        displayOrder: localConfig.displayOrder ?? token.tokenId,
         salesPeriodEnabled: localConfig.salesPeriodEnabled ?? false,
         salesStartDate: localConfig.salesStartDate,
         salesEndDate: localConfig.salesEndDate,
@@ -83,21 +83,10 @@ export function getMergedTokenConfigs(): MergedTokenConfig[] {
 export function getDefaultToken(): MergedTokenConfig | null {
   const tokens = getMergedTokenConfigs();
   
-  // Read from default-token.json
-  try {
-    const defaultData = JSON.parse(readFileSync(join(process.cwd(), 'default-token.json'), 'utf-8'));
-    if (defaultData.tokenId !== undefined) {
-      const token = tokens.find(t => t.tokenId === defaultData.tokenId);
-      if (token) return token;
-    }
-  } catch (error) {
-    // File doesn't exist or is invalid
-  }
-  
-  // Fallback to defaultTokenId from settings
-  const localSettings = loadLocalSettings();
-  if (localSettings?.defaultTokenId !== undefined) {
-    const token = tokens.find(t => t.tokenId === localSettings.defaultTokenId);
+  // Get from settings.json
+  const settings = loadLocalSettings();
+  if (settings?.defaultTokenId !== undefined) {
+    const token = tokens.find(t => t.tokenId === settings.defaultTokenId);
     if (token) return token;
   }
   

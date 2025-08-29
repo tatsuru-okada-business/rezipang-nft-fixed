@@ -10,10 +10,18 @@ export interface ThirdwebTokenInfo {
   image?: string; // NFT画像URL
   description?: string; // NFT説明文
   currentPrice?: string;
-  currency?: string;
-  maxPerWallet?: number;
-  merkleRoot?: string;
-  claimConditionActive: boolean;
+  price?: string; // 価格
+  currency?: string; // 通貨アドレス
+  currencyAddress?: string; // 通貨アドレス
+  currencySymbol?: string; // 通貨シンボル（POL, USDC等）
+  currencyDecimals?: number; // 通貨の小数点桁数
+  currencyIsNative?: boolean; // ネイティブトークンかどうか
+  claimConditionActive?: boolean; // クレーム条件が有効か
+  maxSupply?: number; // 最大供給量
+  maxPerWallet?: number; // 1ウォレットあたりの最大ミント数
+  merkleRoot?: string; // マークルルート
+  salesStartDate?: Date; // 販売開始日時
+  salesEndDate?: Date; // 販売終了日時
 }
 
 // ローカルで管理する補助情報（編集可能）
@@ -22,6 +30,7 @@ export interface LocalTokenSettings {
   displayEnabled: boolean;      // サイトに表示するか
   displayOrder: number;         // 表示順序
   customDescription?: string;   // カスタム説明文
+  customPrice?: string;         // カスタム価格
   salesNote?: string;          // 販売メモ（内部用）
   stockAlertThreshold?: number; // 在庫アラート閾値
   salesPeriodEnabled: boolean;  // 販売期間設定の有効/無効
@@ -33,7 +42,7 @@ export interface LocalTokenSettings {
   maxSupply?: number;          // 最大発行数
   reservedSupply?: number;     // 運営予約分
   soldOutMessage?: string;     // 売り切れ時のメッセージ
-  maxPerWallet?: number;       // 1ウォレットあたりの最大ミント数
+  // maxPerWallet\u306f\u524a\u9664 - \u30a2\u30ed\u30fc\u30ea\u30b9\u30c8CSV\u3067\u7ba1\u7406       // 1ウォレットあたりの最大ミント数
 }
 
 // 統合されたトークン情報

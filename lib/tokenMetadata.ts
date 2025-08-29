@@ -7,8 +7,17 @@ export interface TokenMetadata {
   description: string;
   image: string;
   price?: string;
+  currency?: string;
+  currencySymbol?: string;
+  currencyDecimals?: number;
+  currencyIsNative?: boolean;
   totalSupply?: string;
   maxSupply?: number;
+  salesPeriodEnabled?: boolean;
+  salesStartDate?: string;
+  salesEndDate?: string;
+  isUnlimited?: boolean;
+  tokenId?: number;
   attributes?: Array<{ trait_type: string; value: string | number }>;
 }
 

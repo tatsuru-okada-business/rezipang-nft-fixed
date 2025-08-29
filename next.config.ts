@@ -46,10 +46,39 @@ const nextConfig: NextConfig = {
         ...config.optimization,
         splitChunks: {
           chunks: 'all',
+          maxInitialRequests: 30,
+          minSize: 20000,
           cacheGroups: {
-            thirdweb: {
-              test: /[\\/]node_modules[\\/](thirdweb|@thirdweb-dev)[\\/]/,
-              name: 'thirdweb',
+            default: false,
+            vendors: false,
+            framework: {
+              name: 'framework',
+              chunks: 'all',
+              test: /[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-subscription)[\\/]/,
+              priority: 40,
+              enforce: true,
+            },
+            thirdwebCore: {
+              test: /[\\/]node_modules[\\/]thirdweb[\\/](dist|src)[\\/](chains|client|utils|wallets)[\\/]/,
+              name: 'thirdweb-core',
+              priority: 30,
+              reuseExistingChunk: true,
+            },
+            thirdwebExtensions: {
+              test: /[\\/]node_modules[\\/]thirdweb[\\/](dist|src)[\\/]extensions[\\/]/,
+              name: 'thirdweb-ext',
+              priority: 25,
+              reuseExistingChunk: true,
+            },
+            thirdwebReact: {
+              test: /[\\/]node_modules[\\/]thirdweb[\\/](dist|src)[\\/]react[\\/]/,
+              name: 'thirdweb-react',
+              priority: 20,
+              reuseExistingChunk: true,
+            },
+            commons: {
+              name: 'commons',
+              minChunks: 2,
               priority: 10,
               reuseExistingChunk: true,
             },

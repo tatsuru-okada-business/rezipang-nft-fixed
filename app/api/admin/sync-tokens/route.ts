@@ -28,10 +28,9 @@ export async function GET(req: Request) {
     // 保存
     saveLocalSettings(managedTokens);
     
-    // フィルタリング: クレーム条件が有効で汎用名でないトークンのみ
+    // フィルタリング: 汎用名でないトークンのみ
     const filteredTokens = managedTokens.filter(token => {
-      return token.thirdweb.claimConditionActive && 
-             !token.thirdweb.name.match(/^Token #\d+$/);
+      return !token.thirdweb.name.match(/^Token #\d+$/);
     });
     
     // デバッグ: フィルタリング後のトークン情報
@@ -86,6 +85,23 @@ export async function POST(req: Request) {
       }
       
       const thirdwebTokens = await fetchAllTokensFromThirdweb(contractAddress);
+      
+      // Thirdwebからトークンが取得できない場合はエラーを返す（設定をリセットしない）
+      if (thirdwebTokens.length === 0) {
+        console.warn('No tokens fetched from Thirdweb, keeping existing configuration');
+        // 既存の設定を読み込んで返す
+        const adminConfigPath = join(process.cwd(), 'admin-config.json');
+        if (existsSync(adminConfigPath)) {
+          const adminConfig = JSON.parse(readFileSync(adminConfigPath, 'utf-8'));
+          return NextResponse.json({
+            success: false,
+            error: 'No tokens fetched from Thirdweb. Keeping existing configuration.',
+            tokens: adminConfig.tokens || [],
+            tokensSynced: 0
+          });
+        }
+      }
+      
       const localSettings = loadLocalSettings();
       const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
       saveLocalSettings(managedTokens);
@@ -100,7 +116,6 @@ export async function POST(req: Request) {
       writeFileSync(adminConfigPath, JSON.stringify(adminConfig, null, 2));
       
       const filteredTokens = managedTokens.filter(token => 
-        token.thirdweb.claimConditionActive && 
         !token.thirdweb.name.match(/^Token #\d+$/)
       );
       

@@ -6,20 +6,13 @@ import { join } from 'path';
 
 export async function GET(req: Request) {
   try {
-    // default-token.jsonからdefaultTokenIdを取得（優先）
-    const defaultTokenPath = join(process.cwd(), 'default-token.json');
+    // settings.jsonからdefaultTokenIdを取得
+    const settingsPath = join(process.cwd(), 'settings.json');
     let defaultTokenId = 0;
     
-    if (existsSync(defaultTokenPath)) {
-      const defaultTokenData = JSON.parse(readFileSync(defaultTokenPath, 'utf-8'));
-      defaultTokenId = defaultTokenData.tokenId ?? 0;
-    } else {
-      // default-token.jsonがない場合のみlocal-settings.jsonから取得
-      const localSettingsPath = join(process.cwd(), 'local-settings.json');
-      if (existsSync(localSettingsPath)) {
-        const localSettings = JSON.parse(readFileSync(localSettingsPath, 'utf-8'));
-        defaultTokenId = localSettings.defaultTokenId ?? 0;
-      }
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      defaultTokenId = settings.defaultTokenId ?? 0;
     }
     
     const mergedTokens = getMergedTokenConfigs();
@@ -34,14 +27,15 @@ export async function GET(req: Request) {
         isUnlimited: defaultToken.isUnlimited
       });
       
-      if (inSalesPeriod && defaultToken.claimConditionActive) {
+      // claimConditionActiveのチェックを削除またはdisplayEnabledをチェック
+      if (inSalesPeriod && defaultToken.displayEnabled) {
         return NextResponse.json({
           token: {
             tokenId: defaultToken.tokenId,
             name: defaultToken.name,
             description: defaultToken.description,
             image: defaultToken.image,
-            price: defaultToken.currentPrice,
+            price: defaultToken.price || defaultToken.currentPrice,
             currency: defaultToken.currency,
             totalSupply: defaultToken.totalSupply,
             salesPeriodEnabled: defaultToken.salesPeriodEnabled,
@@ -78,9 +72,16 @@ export async function POST(req: Request) {
       );
     }
     
-    // default-token.jsonを更新
-    const defaultTokenPath = join(process.cwd(), 'default-token.json');
-    writeFileSync(defaultTokenPath, JSON.stringify({ tokenId }, null, 2));
+    // settings.jsonを更新
+    const settingsPath = join(process.cwd(), 'settings.json');
+    let settings = { tokens: {}, defaultTokenId: 0 };
+    
+    if (existsSync(settingsPath)) {
+      settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    }
+    
+    settings.defaultTokenId = tokenId;
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     
     return NextResponse.json({ success: true, tokenId });
   } catch (error) {

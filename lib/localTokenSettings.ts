@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { LocalTokenSettings, ManagedToken, AdminConfiguration } from './types/adminConfig';
 import type { ThirdwebTokenInfo } from './types/adminConfig';
+import { fetchAllTokensFromThirdweb, syncSingleToken } from './thirdwebSync';
 
 const ADMIN_CONFIG_PATH = join(process.cwd(), 'admin-config.json');
 const LOCAL_SETTINGS_PATH = join(process.cwd(), 'local-settings.json');
@@ -176,4 +177,162 @@ export function updateLocalSettings(
   }));
   
   saveLocalSettings(tokens);
+}
+
+// Thirdwebと完全同期する関数
+export async function syncWithThirdweb(
+  contractAddress?: string,
+  options?: {
+    maxTokens?: number;
+    forceUpdate?: boolean;
+  }
+): Promise<{
+  success: boolean;
+  tokens?: ManagedToken[];
+  error?: string;
+  tokensSynced?: number;
+  tokensUpdated?: number;
+}> {
+  try {
+    const address = contractAddress || process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+    
+    if (!address) {
+      return {
+        success: false,
+        error: 'Contract address not configured'
+      };
+    }
+
+    console.log(`Starting sync with Thirdweb for contract: ${address}`);
+    
+    // Thirdwebから全トークン情報を取得（エラーハンドリング付き）
+    let thirdwebTokens: ThirdwebTokenInfo[];
+    try {
+      thirdwebTokens = await fetchAllTokensFromThirdweb(
+        address,
+        options?.maxTokens || 100
+      );
+    } catch (error) {
+      console.error('Failed to fetch tokens from Thirdweb:', error);
+      return {
+        success: false,
+        error: `Thirdweb sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+
+    if (!thirdwebTokens || thirdwebTokens.length === 0) {
+      return {
+        success: false,
+        error: 'No tokens found in contract'
+      };
+    }
+
+    // 既存のローカル設定を読み込み
+    const localSettings = loadLocalSettings();
+    
+    // データを統合
+    const managedTokens = mergeTokenData(thirdwebTokens, localSettings);
+    
+    // 保存
+    saveLocalSettings(managedTokens);
+    
+    // 統計情報
+    const tokensUpdated = thirdwebTokens.filter(token => 
+      localSettings.has(token.tokenId)
+    ).length;
+    
+    console.log(`Sync completed: ${thirdwebTokens.length} tokens synced, ${tokensUpdated} updated`);
+    
+    return {
+      success: true,
+      tokens: managedTokens,
+      tokensSynced: thirdwebTokens.length,
+      tokensUpdated
+    };
+  } catch (error) {
+    console.error('Unexpected error during sync:', error);
+    return {
+      success: false,
+      error: `Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
+
+// 特定のトークンのみ同期
+export async function syncSingleTokenWithThirdweb(
+  tokenId: number,
+  contractAddress?: string
+): Promise<{
+  success: boolean;
+  token?: ManagedToken;
+  error?: string;
+}> {
+  try {
+    const address = contractAddress || process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+    
+    if (!address) {
+      return {
+        success: false,
+        error: 'Contract address not configured'
+      };
+    }
+
+    // Thirdwebから単一トークン情報を取得
+    const thirdwebToken = await syncSingleToken(address, tokenId);
+    
+    if (!thirdwebToken) {
+      return {
+        success: false,
+        error: `Token ${tokenId} not found`
+      };
+    }
+
+    // 既存のローカル設定を読み込み
+    const localSettings = loadLocalSettings();
+    const localSetting = localSettings.get(tokenId) || createDefaultLocalSettings(tokenId);
+    
+    // トークンデータを統合
+    const managedToken: ManagedToken = {
+      thirdweb: thirdwebToken,
+      local: {
+        ...localSetting,
+        lastSyncTime: new Date(),
+      },
+    };
+
+    // 全トークンリストを更新
+    const allTokens = Array.from(localSettings.entries()).map(([id, local]) => {
+      if (id === tokenId) {
+        return managedToken;
+      }
+      // 他のトークンは既存のデータを保持（Thirdweb情報なしの場合はダミーデータ）
+      return {
+        thirdweb: {
+          tokenId: id,
+          name: `Token #${id}`,
+          totalSupply: 0n,
+          claimConditionActive: false,
+        },
+        local,
+      } as ManagedToken;
+    });
+
+    // 新規トークンの場合は追加
+    if (!localSettings.has(tokenId)) {
+      allTokens.push(managedToken);
+    }
+
+    saveLocalSettings(allTokens);
+    
+    return {
+      success: true,
+      token: managedToken
+    };
+  } catch (error) {
+    console.error(`Failed to sync token ${tokenId}:`, error);
+    return {
+      success: false,
+      error: `Failed to sync token: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
 }

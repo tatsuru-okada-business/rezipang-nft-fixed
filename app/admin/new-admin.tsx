@@ -9,6 +9,20 @@ import { ProjectSettings } from '@/components/admin/ProjectSettings';
 
 const ADMIN_ADDRESSES = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
 
+interface AllowlistData {
+  exists: boolean;
+  tokenId: string;
+  isDefault: boolean;
+  headers: string[];
+  data: any[];
+  stats: {
+    totalEntries: number;
+    uniqueAddresses: number;
+    totalMaxMint: number;
+  };
+  filePath: string;
+}
+
 export default function NewAdminPanel() {
   const account = useActiveAccount();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -19,6 +33,9 @@ export default function NewAdminPanel() {
   const [saving, setSaving] = useState(false);
   const [selectedToken, setSelectedToken] = useState<ManagedToken | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [showAllowlistModal, setShowAllowlistModal] = useState(false);
+  const [allowlistData, setAllowlistData] = useState<AllowlistData | null>(null);
+  const [loadingAllowlist, setLoadingAllowlist] = useState(false);
 
   // default-token APIを読み込む
   useEffect(() => {
@@ -39,13 +56,34 @@ export default function NewAdminPanel() {
       const isAdminUser = ADMIN_ADDRESSES.includes(account.address.toLowerCase());
       setIsAdmin(isAdminUser);
       if (isAdminUser) {
-        syncTokens();
+        // 自動同期を削除、JSONファイルから読み込みのみ
+        loadTokensFromConfig();
       }
     } else {
       setIsAdmin(false);
     }
   }, [account?.address]);
 
+  // JSONファイルから設定を読み込む（同期なし）
+  const loadTokensFromConfig = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/tokens');
+      if (response.ok) {
+        const data = await response.json();
+        setTokens(data.tokens || []);
+        if (data.lastSync) {
+          setLastSync(new Date(data.lastSync));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading tokens:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Thirdwebと同期（手動実行のみ）
   const syncTokens = async () => {
     setSyncing(true);
     try {
@@ -53,20 +91,33 @@ export default function NewAdminPanel() {
       if (response.ok) {
         const data = await response.json();
         console.log('Received tokens from API:', data.tokens);
-        data.tokens.forEach((token: any) => {
+        
+        // トークンデータの検証
+        const validTokens = (data.tokens || []).filter((token: any) => {
+          if (!token || !token.thirdweb) {
+            console.warn('Invalid token structure:', token);
+            return false;
+          }
+          return true;
+        });
+        
+        validTokens.forEach((token: any) => {
           console.log(`Token ${token.thirdweb.tokenId}:`, {
             name: token.thirdweb.name,
             hasImage: !!token.thirdweb.image,
             imageUrl: token.thirdweb.image,
           });
         });
-        setTokens(data.tokens);
+        
+        setTokens(validTokens);
         setLastSync(new Date(data.lastSync));
         
-        // default-token.jsonを読み込み
-        const defaultRes = await fetch('/default-token.json');
-        const defaultData = await defaultRes.json();
-        setDefaultTokenId(defaultData.tokenId || 0);
+        // default-token.jsonを読み込み（APIエンドポイント経由）
+        const defaultRes = await fetch('/api/default-token');
+        if (defaultRes.ok) {
+          const defaultData = await defaultRes.json();
+          setDefaultTokenId(defaultData.tokenId || 0);
+        }
       }
     } catch (error) {
       console.error('Error syncing tokens:', error);
@@ -193,7 +244,7 @@ export default function NewAdminPanel() {
         {/* トークン一覧 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tokens
-            .filter(token => !token.thirdweb.name.match(/^Token #\d+$/))
+            .filter(token => token?.thirdweb?.name && !token.thirdweb.name.match(/^Token #\d+$/))
             .map(token => (
             <div
               key={token.thirdweb.tokenId}
@@ -228,19 +279,13 @@ export default function NewAdminPanel() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">価格:</span>
                     <span className="text-gray-300">
-                      {formatPrice(token.thirdweb.currentPrice || '0', token.thirdweb.currency || 'POL')} {token.thirdweb.currency}
+                      {formatPrice(token.thirdweb.currentPrice || token.thirdweb.price || '0', token.thirdweb.currencySymbol || token.thirdweb.currency || '')} {token.thirdweb.currencySymbol || ''}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">供給量:</span>
                     <span className="text-gray-300">
                       {token.thirdweb.totalSupply?.toString() || '∞'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">クレーム条件:</span>
-                    <span className={token.thirdweb.claimConditionActive ? 'text-green-400' : 'text-red-400'}>
-                      {token.thirdweb.claimConditionActive ? 'アクティブ' : '非アクティブ'}
                     </span>
                   </div>
                 </div>
@@ -393,12 +438,6 @@ export default function NewAdminPanel() {
                       {selectedToken.thirdweb.maxPerWallet || '無制限'}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Merkle Root:</span>
-                    <span className="text-gray-300 ml-2">
-                      {selectedToken.thirdweb.merkleRoot ? '設定済み' : 'なし'}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -465,31 +504,61 @@ export default function NewAdminPanel() {
                   />
                 </div>
 
-                {/* 価格設定 */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    カスタム価格（Thirdwebで価格が設定されていない場合に使用）
-                  </label>
-                  <div className="flex items-center space-x-2">
+                {/* 価格と通貨設定 */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">
+                      価格
+                    </label>
                     <input
                       type="number"
                       step="0.001"
-                      value={selectedToken.local.customPrice || ''}
+                      value={selectedToken.local.customPrice || selectedToken.thirdweb.price || ''}
                       onChange={(e) => {
                         const newToken = { ...selectedToken };
                         newToken.local.customPrice = e.target.value;
+                        if (!newToken.thirdweb) newToken.thirdweb = {};
+                        newToken.thirdweb.price = e.target.value;
                         setSelectedToken(newToken);
                       }}
                       placeholder="例: 1"
-                      className="flex-1 px-3 py-2 bg-gray-700 text-white rounded"
+                      className="w-full px-3 py-2 bg-gray-700 text-white rounded"
                     />
-                    <span className="text-gray-400">
-                      {selectedToken.thirdweb.currency || 'POL'}
-                    </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Thirdwebのクレーム条件で価格が設定されていない場合、この価格が使用されます
-                  </p>
+                  
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">
+                      通貨
+                    </label>
+                    <select
+                      value={selectedToken.thirdweb.currencySymbol || selectedToken.thirdweb.currency || ''}
+                      onChange={async (e) => {
+                        const symbol = e.target.value;
+                        // 通貨設定を取得
+                        const response = await fetch('/api/admin/currency-config');
+                        const config = await response.json();
+                        const currency = config.currencies.find((c: any) => c.symbol === symbol);
+                        
+                        const newToken = { ...selectedToken };
+                        if (!newToken.thirdweb) newToken.thirdweb = {};
+                        newToken.thirdweb.currencySymbol = symbol;
+                        newToken.thirdweb.currency = currency?.address || '0x0000000000000000000000000000000000000000';
+                        newToken.thirdweb.currencyDecimals = currency?.decimals || 18;
+                        newToken.thirdweb.currencyIsNative = currency?.isNative || false;
+                        setSelectedToken(newToken);
+                      }}
+                      className="w-full px-3 py-2 bg-gray-700 text-white rounded"
+                    >
+                      <option value="POL">POL (Native)</option>
+                      <option value="USDC">USDC</option>
+                      <option value="USDT">USDT</option>
+                      <option value="ZENY">ZENY</option>
+                      <option value="WETH">WETH</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      選択した通貨でNFTを販売します
+                    </p>
+                  </div>
                 </div>
 
                 {/* 販売期間設定 */}
@@ -583,6 +652,115 @@ export default function NewAdminPanel() {
                 </div>
 
                 {/* 最大発行数設定 */}
+                {/* CSVアローリスト管理 */}
+                <div className="bg-gray-900 rounded p-4 mb-4">
+                  <h4 className="text-md font-semibold text-green-400 mb-3">
+                    アローリスト管理（CSV）
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">
+                        CSVファイルアップロード
+                      </label>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('tokenId', selectedToken.thirdweb.tokenId.toString());
+                          
+                          try {
+                            const response = await fetch('/api/admin/upload-allowlist', {
+                              method: 'POST',
+                              headers: {
+                                'X-Admin-Address': account?.address || '',
+                              },
+                              body: formData,
+                            });
+                            
+                            const data = await response.json();
+                            if (data.success) {
+                              alert(`アローリストをアップロードしました。\n登録アドレス数: ${data.stats.totalAddresses}`);
+                            } else {
+                              alert(`エラー: ${data.error}`);
+                            }
+                          } catch (error) {
+                            console.error('Upload error:', error);
+                            alert('アップロードに失敗しました');
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 text-white rounded text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        CSVフォーマット: address,maxMintAmount (ヘッダー行必須)
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setLoadingAllowlist(true);
+                          try {
+                            const response = await fetch(`/api/admin/view-allowlist?tokenId=${selectedToken.thirdweb.tokenId}`, {
+                              headers: {
+                                'X-Admin-Address': account?.address || '',
+                              },
+                            });
+                            if (response.ok) {
+                              const data = await response.json();
+                              setAllowlistData(data);
+                              setShowAllowlistModal(true);
+                            } else {
+                              alert('アローリストの取得に失敗しました');
+                            }
+                          } catch (error) {
+                            console.error('View error:', error);
+                            alert('アローリストの表示に失敗しました');
+                          } finally {
+                            setLoadingAllowlist(false);
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                        disabled={loadingAllowlist}
+                      >
+                        {loadingAllowlist ? '読み込み中...' : 'アローリストを表示'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/admin/upload-allowlist?tokenId=${selectedToken.thirdweb.tokenId}`);
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `allowlist-token-${selectedToken.thirdweb.tokenId}.csv`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                            } else {
+                              alert('アローリストが見つかりません');
+                            }
+                          } catch (error) {
+                            console.error('Download error:', error);
+                            alert('ダウンロードに失敗しました');
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                      >
+                        CSVダウンロード
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 最大発行数管理 */}
                 <div className="bg-gray-900 rounded p-4">
                   <h4 className="text-md font-semibold text-yellow-400 mb-3">
                     最大発行数管理
@@ -708,69 +886,19 @@ export default function NewAdminPanel() {
                       </p>
                     </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">
-                        1ウォレットあたりの最大ミント数
-                      </label>
-                      <input
-                        type="number"
-                        value={selectedToken.local.maxPerWallet || 10}
-                        onChange={(e) => {
-                          const newToken = { ...selectedToken };
-                          const inputValue = parseInt(e.target.value);
-                          
-                          // 入力値の検証
-                          if (isNaN(inputValue) || inputValue < 0) {
-                            return;
-                          }
-                          
-                          // ClaimConditionからの制限を取得
-                          const claimConditionLimit = selectedToken.thirdweb.maxPerWallet;
-                          const maxAllowed = claimConditionLimit || 100; // ClaimConditionが未設定の場合は100
-                          
-                          // 0からmaxAllowedまでの範囲で制限
-                          let finalValue = inputValue;
-                          if (inputValue > maxAllowed) {
-                            finalValue = maxAllowed;
-                            // 警告メッセージを表示
-                            const warningMessage = claimConditionLimit
-                              ? `⚠️ ClaimConditionの制限（${claimConditionLimit}枚）を超えています。${claimConditionLimit}枚に調整されました。`
-                              : `⚠️ ClaimConditionが未設定のため、最大100枚までです。100枚に調整されました。`;
-                            
-                            // 警告を表示（一時的なトースト通知）
-                            const toast = document.createElement('div');
-                            toast.className = 'fixed top-20 right-4 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-500';
-                            toast.textContent = warningMessage;
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                              toast.style.opacity = '0';
-                              setTimeout(() => toast.remove(), 500);
-                            }, 3000);
-                          }
-                          
-                          newToken.local.maxPerWallet = finalValue;
-                          setSelectedToken(newToken);
-                        }}
-                        className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                        min="0"
-                        max={selectedToken.thirdweb.maxPerWallet || 100}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        1つのウォレットがミントできる最大数
-                        {selectedToken.thirdweb.maxPerWallet ? (
-                          <span className="block text-yellow-400 mt-1">
-                            ※ ClaimConditionの制限: 0〜{selectedToken.thirdweb.maxPerWallet}枚まで設定可
-                          </span>
-                        ) : (
-                          <span className="block text-gray-400 mt-1">
-                            ※ ClaimCondition未設定: 0〜100枚まで設定可
-                          </span>
-                        )}
-                        {selectedToken.local.maxPerWallet === 0 && (
-                          <span className="block text-red-400 mt-1">
-                            ⚠️ 0に設定するとミントできなくなります
-                          </span>
-                        )}
+                    {/* 最大ミント数の設定は削除 - アローリストCSVで管理 */}
+                    <div className="bg-gray-900 rounded p-3">
+                      <div className="text-sm text-gray-400 mb-2">
+                        💡 最大ミント数の管理
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        最大ミント数はアローリストCSVで管理されます。
+                        <br />
+                        CSVファイルの「maxMintAmount」列で各ウォレットの最大ミント数を設定してください。
+                        <br />
+                        <span className="text-yellow-400 mt-1 block">
+                          ※ ClaimConditionの制限を超えることはできません
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -867,6 +995,127 @@ export default function NewAdminPanel() {
             </svg>
             <p className="text-gray-800 font-bold text-lg">設定を保存中...</p>
             <p className="text-gray-600 text-sm mt-2">しばらくお待ちください</p>
+          </div>
+        </div>
+      )}
+
+      {/* アローリスト表示モーダル */}
+      {showAllowlistModal && allowlistData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">
+                アローリスト - Token #{allowlistData.tokenId}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAllowlistModal(false);
+                  setAllowlistData(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {!allowlistData.exists ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">このトークンにはアローリストが設定されていません</p>
+              </div>
+            ) : (
+              <>
+                {/* 統計情報 */}
+                <div className="bg-gray-900 rounded p-4 mb-4">
+                  <h3 className="text-sm font-semibold text-green-400 mb-2">統計情報</h3>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">登録アドレス数:</span>
+                      <span className="ml-2 text-white font-semibold">{allowlistData.stats.totalEntries}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">ユニークアドレス:</span>
+                      <span className="ml-2 text-white font-semibold">{allowlistData.stats.uniqueAddresses}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">合計最大ミント数:</span>
+                      <span className="ml-2 text-white font-semibold">{allowlistData.stats.totalMaxMint}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    ソース: {allowlistData.filePath}
+                    {allowlistData.isDefault && " (デフォルトアローリスト)"}
+                  </div>
+                </div>
+
+                {/* データテーブル */}
+                <div className="flex-1 overflow-auto bg-gray-900 rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-800 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-gray-400">#</th>
+                        {allowlistData.headers.map((header, index) => (
+                          <th key={index} className="px-4 py-2 text-left text-gray-400">
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allowlistData.data.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="border-t border-gray-700 hover:bg-gray-800">
+                          <td className="px-4 py-2 text-gray-500">{rowIndex + 1}</td>
+                          {allowlistData.headers.map((header, colIndex) => (
+                            <td key={colIndex} className="px-4 py-2 text-white font-mono text-xs">
+                              {row[header] || '-'}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* アクションボタン */}
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/admin/upload-allowlist?tokenId=${allowlistData.tokenId}`);
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `allowlist-token-${allowlistData.tokenId}.csv`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        }
+                      } catch (error) {
+                        console.error('Download error:', error);
+                        alert('ダウンロードに失敗しました');
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                  >
+                    CSVダウンロード
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAllowlistModal(false);
+                      setAllowlistData(null);
+                    }}
+                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+                  >
+                    閉じる
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

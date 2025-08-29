@@ -1,5 +1,6 @@
 {
   "defaultTokenId": 4,
+  "lastSync": "2025-08-28T22:52:25.711Z",
   "tokens": {
     "0": {
       "displayEnabled": true,
@@ -141,6 +142,5 @@
       "isUnlimited": true,
       "totalMinted": 0
     }
-  },
-  "lastUpdated": "2025-08-28T11:56:35.438Z"
+  }
 }

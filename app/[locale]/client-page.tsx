@@ -1,6 +1,6 @@
 'use client';
 
-import { SimpleMint } from "@/components/SimpleMint";
+import { SimpleMint } from "@/components/SimpleMintV2";
 import { useSettingsSync } from "@/hooks/useSettingsSync";
 import { SettingsUpdateNotification } from "@/components/SettingsUpdateNotification";
 import { useState } from "react";

@@ -1,8 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAddressAllowlisted, getAllowlistEntry } from "@/lib/allowlist";
-import { checkAllowlistStatus } from "@/lib/thirdwebAllowlist";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+
+interface AllowlistEntry {
+  address: string;
+  maxMintAmount: number;
+}
+
+// トークンごとのCSVアローリストを読み込む
+function loadTokenAllowlist(tokenId: number): AllowlistEntry[] {
+  try {
+    const filePath = join(process.cwd(), 'allowlists', `token-${tokenId}`, 'allowlist.csv');
+    
+    if (!existsSync(filePath)) {
+      // トークン固有のアローリストがない場合は、デフォルトを試す
+      const defaultPath = join(process.cwd(), 'allowlist.csv');
+      if (!existsSync(defaultPath)) {
+        return [];
+      }
+      const content = readFileSync(defaultPath, 'utf-8');
+      return parseCSV(content);
+    }
+    
+    const content = readFileSync(filePath, 'utf-8');
+    return parseCSV(content);
+  } catch (error) {
+    console.error(`Error loading allowlist for token ${tokenId}:`, error);
+    return [];
+  }
+}
+
+// CSV解析
+function parseCSV(content: string): AllowlistEntry[] {
+  const lines = content.trim().split('\n');
+  if (lines.length < 2) return [];
+  
+  const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+  const addressIndex = header.indexOf('address');
+  const maxMintIndex = header.indexOf('maxmintamount');
+  
+  if (addressIndex === -1) return [];
+  
+  const entries: AllowlistEntry[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',').map(p => p.trim());
+    if (parts[addressIndex]) {
+      entries.push({
+        address: parts[addressIndex].toLowerCase(),
+        maxMintAmount: maxMintIndex !== -1 && parts[maxMintIndex] 
+          ? parseInt(parts[maxMintIndex]) || 1 
+          : 1
+      });
+    }
+  }
+  
+  return entries;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,161 +69,68 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // ローカル設定から最大ミント数を取得
-    let localMaxPerWallet: number | undefined;
+    const normalizedAddress = address.toLowerCase();
+    
+    // 新しい統合ファイルから情報を取得
+    let tokenInfo: any = null;
+    
     try {
-      const localSettingsPath = join(process.cwd(), 'local-settings.json');
-      const localSettings = JSON.parse(readFileSync(localSettingsPath, 'utf-8'));
-      if (localSettings.tokens && localSettings.tokens[tokenId]) {
-        localMaxPerWallet = localSettings.tokens[tokenId].maxPerWallet;
+      // tokens-cache.jsonから価格と通貨情報を取得
+      const tokensCachePath = join(process.cwd(), 'tokens-cache.json');
+      if (existsSync(tokensCachePath)) {
+        const tokensCache = JSON.parse(readFileSync(tokensCachePath, 'utf-8'));
+        const cachedToken = tokensCache.tokens?.find((t: any) => t.tokenId === tokenId);
+        if (cachedToken) {
+          tokenInfo = {
+            price: cachedToken.price,
+            currency: cachedToken.currency || cachedToken.currencySymbol,
+            currencySymbol: cachedToken.currencySymbol || 'POL'
+          };
+        }
       }
     } catch (error) {
-      console.log('Could not read local settings:', error);
-    }
-
-    // まずThirdwebのClaim Conditionをチェック
-    const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-    if (contractAddress) {
-      try {
-        const thirdwebStatus = await checkAllowlistStatus(
-          contractAddress,
-          tokenId,
-          address
-        );
-        
-        // Merkle Rootが設定されていない場合（パブリックセール）
-        if (!thirdwebStatus.hasMerkleRoot) {
-          console.log("No merkle root - public sale, everyone allowed");
-          // ローカル設定が優先、なければThirdweb設定、それもなければ100
-          const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
-                                        (thirdwebStatus.maxMintAmount || 100);
-          return NextResponse.json({
-            address,
-            isAllowlisted: true,
-            maxMintAmount: effectiveMaxPerWallet,
-            maxPerWallet: effectiveMaxPerWallet,
-            thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
-            localMaxPerWallet: localMaxPerWallet,
-            userMinted: thirdwebStatus.userMinted || 0,
-            source: "thirdweb-public"
-          }, {
-            headers: {
-              'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
-            }
-          });
-        }
-        
-        // Merkle Rootが設定されている場合
-        if (thirdwebStatus.requiresProof) {
-          // テスト環境の場合は CSV ベースでチェック
-          if ('isTestMode' in thirdwebStatus && thirdwebStatus.isTestMode) {
-            console.log("Test mode: checking CSV allowlist for", address);
-            
-            // CSVアローリストをチェック
-            const csvEntry = getAllowlistEntry(address);
-            const isInCSV = isAddressAllowlisted(address);
-            
-            if (isInCSV && csvEntry) {
-              console.log("Address found in CSV allowlist");
-              const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
-                                            (csvEntry.maxMintAmount || thirdwebStatus.maxMintAmount || 1);
-              return NextResponse.json({
-                address,
-                isAllowlisted: true,
-                maxMintAmount: effectiveMaxPerWallet,
-                maxPerWallet: effectiveMaxPerWallet,
-                thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
-                localMaxPerWallet: localMaxPerWallet,
-                userMinted: thirdwebStatus.userMinted || 0,
-                source: "csv-test-mode"
-              }, {
-                headers: {
-                  'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
-                }
-              });
-            } else {
-              console.log("Address NOT found in CSV allowlist");
-              return NextResponse.json({
-                address,
-                isAllowlisted: false,
-                maxMintAmount: 0,
-                maxPerWallet: 0,
-                thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
-                localMaxPerWallet: localMaxPerWallet,
-                userMinted: thirdwebStatus.userMinted || 0,
-                source: "not-in-csv-test-mode"
-              }, {
-                headers: {
-                  'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
-                }
-              });
-            }
-          }
-          
-          // 本番環境の場合（SDK v5 が自動で Merkle Proof を処理）
-          console.log("Production mode: SDK v5 will handle Merkle Proof");
-          const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
-                                        (thirdwebStatus.maxMintAmount || 1);
-          return NextResponse.json({
-            address,
-            isAllowlisted: true, // SDK v5 が自動処理
-            maxMintAmount: effectiveMaxPerWallet,
-            maxPerWallet: effectiveMaxPerWallet,
-            thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
-            localMaxPerWallet: localMaxPerWallet,
-            userMinted: thirdwebStatus.userMinted || 0,
-            source: "thirdweb-merkle"
-          }, {
-            headers: {
-              'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
-            }
-          });
-        }
-        
-        // Thirdwebの結果を返す
-        const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
-                                      thirdwebStatus.maxMintAmount;
-        return NextResponse.json({
-          address,
-          isAllowlisted: thirdwebStatus.isAllowlisted,
-          maxMintAmount: effectiveMaxPerWallet,
-          maxPerWallet: effectiveMaxPerWallet,
-          thirdwebMaxPerWallet: thirdwebStatus.maxMintAmount,
-          localMaxPerWallet: localMaxPerWallet,
-          userMinted: thirdwebStatus.userMinted || 0,
-          source: "thirdweb"
-        }, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
-          }
-        });
-        
-      } catch (thirdwebError) {
-        console.error("Error checking Thirdweb allowlist:", thirdwebError);
-        // Thirdwebエラーの場合はCSVにフォールバック
-      }
+      console.error('Error reading token info:', error);
     }
     
-    // CSVアローリストのみチェック（フォールバック）
-    const isAllowlisted = isAddressAllowlisted(address);
-    const allowlistEntry = getAllowlistEntry(address);
-    const effectiveMaxPerWallet = localMaxPerWallet !== undefined ? localMaxPerWallet : 
-                                  (allowlistEntry?.maxMintAmount || 0);
+    // トークンごとのアローリストをチェック
+    const allowlist = loadTokenAllowlist(tokenId);
+    const entry = allowlist.find(e => e.address === normalizedAddress);
     
+    if (entry) {
+      // アローリストに登録されている
+      // CSVのmaxMintAmountのみを使用（シンプル化）
+      const effectiveMaxMint = entry.maxMintAmount || 1; // CSVの値、未設定なら1
+      
+      return NextResponse.json({
+        address,
+        isAllowlisted: true,
+        maxMintAmount: effectiveMaxMint,
+        csvMaxMintAmount: entry.maxMintAmount,
+        userMinted: 0, // TODO: 実際のミント数を追跡する場合は実装が必要
+        source: "csv",
+        tokenInfo: tokenInfo
+      }, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
+        }
+      });
+    }
+    
+    // アローリストに登録されていない = ミント不可
     return NextResponse.json({
       address,
-      isAllowlisted,
-      maxMintAmount: effectiveMaxPerWallet,
-      maxPerWallet: effectiveMaxPerWallet,
-      thirdwebMaxPerWallet: undefined,
-      localMaxPerWallet: localMaxPerWallet,
+      isAllowlisted: false,
+      maxMintAmount: 0, // ミント不可
+      csvMaxMintAmount: 0,
       userMinted: 0,
-      source: "csv"
+      source: "csv",
+      tokenInfo: tokenInfo
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
       }
     });
+    
   } catch (error) {
     console.error("Error verifying allowlist:", error);
     return NextResponse.json(

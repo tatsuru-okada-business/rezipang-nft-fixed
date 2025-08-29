@@ -1,0 +1,122 @@
+{
+  "lastUpdate": "2025-08-28T22:52:25.709Z",
+  "tokens": [
+    {
+      "tokenId": 0,
+      "name": "キンノカブ",
+      "description": "炎の国で最も偉大な力を持つもの、それがキンノカブです。\n\nかつては、八百万の神々だけが持つことを許された、燃えさかる炎を纏いし純金のカブ。\n\n古来より、このカブを手にした者は、とても大きな力を得ると伝えられています。",
+      "image": "https://ipfs.io/ipfs/QmbUrvhd9bTzorkgMffnbhPkPCLLJtTz1kk4SdFXAyHHts/0.png",
+      "totalSupply": "77",
+      "price": 67,
+      "currency": "USDC",
+      "currencySymbol": "USDC",
+      "merkleRoot": "0x62ad1d4c76159f1478b161ad18c962f63351f0845cc93509fe5f1ab44c63b3e8",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 1,
+      "name": "檜のパスポート",
+      "description": "檜で作られた炎の国の旅券\n炎の国の民であることを証明することができる。\n",
+      "image": "https://ipfs.io/ipfs/QmSoeNrnvFr13r5zAZvMoCrwyq1fr2F7DXRGyqKKRPNqQU/1.png",
+      "totalSupply": "549",
+      "price": 0,
+      "currency": "USDC",
+      "currencySymbol": "USDC",
+      "merkleRoot": "0xb8e383cc475b106a765c1834e110596db2ee04c96637f274bb6d821a1e1b7e6f",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 2,
+      "name": "純金のパスポート",
+      "description": "純金で作られた炎の国の旅券\n金運を高める力を秘めた幻の旅券\n炎の国の民であることを証明することができる。",
+      "image": "https://ipfs.io/ipfs/QmYErN3gkU7xPu41Qm6HavyQDoaJzJYHxMp7g77Q3suPSJ/2.png",
+      "totalSupply": "14",
+      "price": 1,
+      "currency": "ZENY",
+      "currencySymbol": "ZENY",
+      "merkleRoot": "0xcc3dab3ba547abdf94e81066b6fd31369e4e7ae96f675e02be4475789aea7bda",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 3,
+      "name": "黒瑪瑙のパスポート",
+      "description": "黒瑪瑙で作られた炎の国の旅券\n邪気を払う力を秘めた幻の旅券\n炎の国の民であることを証明することができる。",
+      "image": "https://ipfs.io/ipfs/QmXTnixWmE4ma5wFZ1zQDngHW2ocU7hGYs8ZWNSEWa8Zep/3.png",
+      "totalSupply": "67",
+      "price": 100,
+      "currency": "USDC",
+      "currencySymbol": "USDC",
+      "merkleRoot": "0x797424d8440972878dc96809ca1da7e302cb02e0b3363c74d9971843473f7770",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 4,
+      "name": "ココホレ",
+      "description": "炎の国に生息する毛がフサフサした動物 稀に『ココホレワンワン』と鳴くことがあるらしい。",
+      "image": "https://ipfs.io/ipfs/Qmaw1uyyhyfduoMC6VdZaWf16gwRnMHY7SabipKxTLCmhJ/4.png",
+      "totalSupply": "24",
+      "price": 5000,
+      "currency": "ZENY",
+      "currencySymbol": "ZENY",
+      "merkleRoot": "0x1a0ed103c6cddf2921a239621c73131da99fdd658a4b978481c747b8158eddba",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 15,
+      "name": "アマテラス",
+      "description": "炎の国へと降臨し、村人（ニンゲン）と共に生きる道を選んだ八百万の神のひとり。\n不老不死の身体と精神を持ち、後の世には天照大御神と崇められることとなる。",
+      "image": "https://ipfs.io/ipfs/QmXMmfKpXDxAPNPUDPb9Bh9nnJcyu6Uei7T7svagd5p3AZ/15.png",
+      "totalSupply": "1",
+      "price": 0,
+      "currency": "USDC",
+      "currencySymbol": "USDC",
+      "merkleRoot": "0xe436a79a7f86e6395582d7de0e71c4f7da2b753fbd0e0ee5177e1b3c6f1a1f4e",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 16,
+      "name": "スサノオ",
+      "description": "炎の国へと降臨し、村人（ニンゲン）と共に生きる道を選んだ八百万の神のひとり。\n不老不死の身体と精神を持ち、後の世には須佐之男命と崇められることとなる。\n",
+      "image": "https://ipfs.io/ipfs/QmUWrbAjUkp6sv9yi8Hp3cArZCMXeq3VPStTtyM9HbMDTP/16.png",
+      "totalSupply": "1",
+      "price": 0,
+      "currency": "USDC",
+      "currencySymbol": "USDC",
+      "merkleRoot": "0xe436a79a7f86e6395582d7de0e71c4f7da2b753fbd0e0ee5177e1b3c6f1a1f4e",
+      "claimConditionActive": true
+    },
+    {
+      "tokenId": 17,
+      "name": "特別入国申請書（百姓）",
+      "description": "炎の国で百姓として生きていくことを誓う特別な申請書。\n村役場に提出することで、必要に応じた物資が支給される。",
+      "image": "https://ipfs.io/ipfs/QmdqGrWkgMoLdLDohwmGLuK1e9xyThWFy3ywF2uWjY2F2u/17.png",
+      "totalSupply": "0",
+      "price": 0,
+      "currency": "POL",
+      "currencySymbol": "POL",
+      "claimConditionActive": false
+    },
+    {
+      "tokenId": 18,
+      "name": "特別入国申請書（木こり）",
+      "description": "炎の国で木こりとして生きていくことを誓う特別な申請書。\n村役場に提出することで、必要に応じた物資が支給される。",
+      "image": "https://ipfs.io/ipfs/QmUtqCQf8Lfy13LXST3WWLLBdTjGm8MSiyv2wCtTrdNaVQ/18.png",
+      "totalSupply": "0",
+      "price": 0,
+      "currency": "POL",
+      "currencySymbol": "POL",
+      "claimConditionActive": false
+    },
+    {
+      "tokenId": 19,
+      "name": "特別入国申請書（鉱山夫）",
+      "description": "炎の国で鉱山夫として生きていくことを誓う特別な申請書。\n村役場に提出することで、必要に応じた物資が支給される。",
+      "image": "https://ipfs.io/ipfs/QmcRQCpkCoZKK8NoDgTtdP6VagYibuMGRfH7GH7LWjQd5v/19.png",
+      "totalSupply": "0",
+      "price": 0,
+      "currency": "POL",
+      "currencySymbol": "POL",
+      "claimConditionActive": false
+    }
+  ]
+}

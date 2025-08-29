@@ -1,14 +1,10 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "pnpm run build",
+  "installCommand": "pnpm install",
   "framework": "nextjs",
-  "regions": ["hnd1"],
-  "env": {
-    "NEXT_PUBLIC_CONTRACT_ADDRESS": "@contract_address",
-    "NEXT_PUBLIC_CHAIN_ID": "@chain_id",
-    "NEXT_PUBLIC_THIRDWEB_CLIENT_ID": "@thirdweb_client_id",
-    "NEXT_PUBLIC_ADMIN_ADDRESSES": "@admin_addresses"
-  },
+  "regions": [
+    "hnd1"
+  ],
   "build": {
     "env": {
       "SKIP_ENV_VALIDATION": "true"
