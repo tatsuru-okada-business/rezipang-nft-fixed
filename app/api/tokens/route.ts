@@ -3,6 +3,7 @@ import { loadTokenConfig } from '@/lib/tokenConfig';
 import { detectAvailableTokens, fetchMultipleTokenMetadata, type TokenMetadata } from '@/lib/tokenMetadata';
 import { getMergedTokenConfigs } from '@/lib/localSettings';
 import { withCache } from '@/lib/cache';
+import { resolveCurrencyAddress, getCurrencyDecimals, isCurrencyNative, getCurrencySymbol } from '@/lib/currencyUtils';
 
 export async function GET(request: Request) {
   try {
@@ -21,13 +22,19 @@ export async function GET(request: Request) {
       if (tokenId !== null) {
         const targetToken = mergedTokens.find(t => t.tokenId === parseInt(tokenId));
         if (targetToken) {
+          const currencyAddress = resolveCurrencyAddress(targetToken.currency);
+          const currencySymbol = getCurrencySymbol(currencyAddress);
+          
           tokens = [{
             id: targetToken.tokenId,
             name: targetToken.name,
             description: targetToken.description,
             image: targetToken.image,
-            price: targetToken.currentPrice,
-            currency: targetToken.currency,
+            price: targetToken.currentPrice || targetToken.price,
+            currency: currencyAddress,
+            currencySymbol: currencySymbol,
+            currencyDecimals: getCurrencyDecimals(targetToken.currency),
+            currencyIsNative: isCurrencyNative(targetToken.currency),
             totalSupply: targetToken.totalSupply,
             salesPeriodEnabled: targetToken.salesPeriodEnabled,
             salesStartDate: targetToken.salesStartDate,
@@ -54,20 +61,32 @@ export async function GET(request: Request) {
           token.displayEnabled && 
           !token.name.match(/^Token #\d+$/)
         )
-        .map(token => ({
-          id: token.tokenId,
-          name: token.name,
-          description: token.description,
-          image: token.image,
-          price: token.currentPrice,
-          currency: token.currency,
-          totalSupply: token.totalSupply,
-          salesPeriodEnabled: token.salesPeriodEnabled,
-          salesStartDate: token.salesStartDate,
-          salesEndDate: token.salesEndDate,
-          isUnlimited: token.isUnlimited,
-          attributes: []
-        }))
+        .map(token => {
+          const currencyAddress = resolveCurrencyAddress(token.currency);
+          const currencySymbol = getCurrencySymbol(currencyAddress);
+          const decimals = getCurrencyDecimals(token.currency);
+          
+          // 価格はWei単位のまま保持
+          const priceInWei = token.currentPrice || token.price;
+          
+          return {
+            id: token.tokenId,
+            name: token.name,
+            description: token.description,
+            image: token.image,
+            price: priceInWei,  // Wei単位で返す
+            currency: currencyAddress,
+            currencySymbol: currencySymbol,
+            currencyDecimals: decimals,
+            currencyIsNative: isCurrencyNative(token.currency),
+            totalSupply: token.totalSupply,
+            salesPeriodEnabled: token.salesPeriodEnabled,
+            salesStartDate: token.salesStartDate,
+            salesEndDate: token.salesEndDate,
+            isUnlimited: token.isUnlimited,
+            attributes: []
+          };
+        })
         .sort((a, b) => a.id - b.id);
       
       if (tokens.length > 0) {

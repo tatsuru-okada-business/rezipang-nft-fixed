@@ -1,11 +1,6 @@
-import { WalletConnect } from "@/components/WalletConnect";
-import SimpleMint from "@/components/SimpleMintWrapper";
-import { NFTDetails } from "@/components/NFTDetails";
-import { PriceChecker } from "@/components/PriceChecker";
-import { MintSimulator } from "@/components/MintSimulator";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ClientMainContent } from "@/components/ClientMainContent";
 import { PageThemeWrapper } from "@/components/PageThemeWrapper";
-import { isFeatureEnabled, getProjectConfig } from "@/lib/projectConfig";
+import { getProjectConfig } from "@/lib/projectConfig";
 import en from "@/locales/en.json";
 import ja from "@/locales/ja.json";
 
@@ -27,69 +22,14 @@ export default async function Home({
     <PageThemeWrapper>
       <main className="min-h-screen">
         <div className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-end mb-4">
-            <LanguageSwitcher currentLocale={locale} />
-          </div>
-          
-          <header className="text-center mb-8">
-            <h1 className="text-5xl font-bold mb-4 site-title" style={{
-              textShadow: projectConfig.ui?.textOutline?.enabled 
-                ? `1px 1px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -1px 1px 0 ${projectConfig.ui.textOutline.color || '#000000'}, 1px -1px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -1px -1px 0 ${projectConfig.ui.textOutline.color || '#000000'}`
-                : 'none'
-            }}>
-              {projectConfig.projectName || t.title}
-            </h1>
-            <p className="text-xl font-medium themed-text" style={{
-              textShadow: projectConfig.ui?.textOutline?.enabled 
-                ? `0.5px 0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -0.5px 0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}, 0.5px -0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}, -0.5px -0.5px 0 ${projectConfig.ui.textOutline.color || '#000000'}`
-                : 'none'
-            }}>
-              {projectConfig.projectDescription || t.subtitle}
-            </p>
-          </header>
-
-          {/* NFTコレクション情報 */}
-          <NFTDetails locale={locale} />
-
-          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-            {/* ウォレット接続 */}
-            <div className="flex justify-center mb-8">
-              <WalletConnect locale={locale} />
-            </div>
-
-            {/* シンプルなミントUI */}
-            <div className="border-t pt-8">
-              <SimpleMint locale={locale} />
-            </div>
-          </div>
-
-          {/* ミントシミュレーター - 設定で制御 */}
-          {isFeatureEnabled('showMintSimulator') && (
-            <div className="mb-8">
-              <MintSimulator locale={locale} />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 使い方 */}
-            <div className="bg-white/90 rounded-xl p-6 shadow-md">
-              <h3 className="text-lg font-bold text-gray-900 mb-3">{t.howItWorks.title}</h3>
-              <ol className="list-decimal list-inside space-y-2 text-gray-800">
-                <li>{t.howItWorks.step1}</li>
-                <li>{t.howItWorks.step2}</li>
-                <li>{t.howItWorks.step3}</li>
-                <li>{t.howItWorks.step4}</li>
-              </ol>
-            </div>
-            
-            {/* 価格チェッカー（開発用） - 設定で制御 */}
-            {isFeatureEnabled('showPriceChecker') && (
-              <PriceChecker locale={locale} />
-            )}
+          <div className="max-w-4xl mx-auto">
+            <ClientMainContent 
+              locale={locale} 
+              translations={t} 
+              projectConfig={projectConfig}
+            />
           </div>
         </div>
-      </div>
       </main>
     </PageThemeWrapper>
   );

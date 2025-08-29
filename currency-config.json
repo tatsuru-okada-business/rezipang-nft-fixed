@@ -2,21 +2,21 @@
   "currencies": [
     {
       "symbol": "POL",
-      "name": "Polygon",
+      "name": "Polygon Ecosystem Token",
       "address": "0x0000000000000000000000000000000000000000",
       "decimals": 18,
       "isNative": true,
       "chainId": 137,
-      "description": "Polygon Native Token"
+      "description": "Polygon Native Token (Upgraded from MATIC on Sep 4, 2024)"
     },
     {
       "symbol": "MATIC",
-      "name": "Polygon (Legacy)",
+      "name": "Polygon (Legacy - Deprecated)",
       "address": "0x0000000000000000000000000000000000000000",
       "decimals": 18,
       "isNative": true,
       "chainId": 137,
-      "description": "Polygon Native Token (Legacy name)"
+      "description": "Legacy token - Migrated to POL on Sep 4, 2024"
     },
     {
       "symbol": "USDC",

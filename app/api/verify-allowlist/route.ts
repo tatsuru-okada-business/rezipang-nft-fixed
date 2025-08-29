@@ -71,30 +71,25 @@ export async function POST(request: NextRequest) {
     
     const normalizedAddress = address.toLowerCase();
     
-    // admin-configから価格と通貨情報を取得
+    // 新しい統合ファイルから情報を取得
     let tokenInfo: any = null;
-    try {
-      const adminConfigPath = join(process.cwd(), 'admin-config.json');
-      if (existsSync(adminConfigPath)) {
-        const adminConfig = JSON.parse(readFileSync(adminConfigPath, 'utf-8'));
-        tokenInfo = adminConfig.tokens?.find((t: any) => t.thirdweb.tokenId === tokenId);
-      }
-    } catch (error) {
-      console.error('Error reading admin-config:', error);
-    }
     
-    // ローカル設定から最大ミント数を取得
-    let localMaxPerWallet: number | undefined;
     try {
-      const localSettingsPath = join(process.cwd(), 'local-settings.json');
-      if (existsSync(localSettingsPath)) {
-        const localSettings = JSON.parse(readFileSync(localSettingsPath, 'utf-8'));
-        if (localSettings.tokens && localSettings.tokens[tokenId]) {
-          localMaxPerWallet = localSettings.tokens[tokenId].maxPerWallet;
+      // tokens-cache.jsonから価格と通貨情報を取得
+      const tokensCachePath = join(process.cwd(), 'tokens-cache.json');
+      if (existsSync(tokensCachePath)) {
+        const tokensCache = JSON.parse(readFileSync(tokensCachePath, 'utf-8'));
+        const cachedToken = tokensCache.tokens?.find((t: any) => t.tokenId === tokenId);
+        if (cachedToken) {
+          tokenInfo = {
+            price: cachedToken.price,
+            currency: cachedToken.currency || cachedToken.currencySymbol,
+            currencySymbol: cachedToken.currencySymbol || 'POL'
+          };
         }
       }
     } catch (error) {
-      console.log('Could not read local settings:', error);
+      console.error('Error reading token info:', error);
     }
     
     // トークンごとのアローリストをチェック
@@ -103,23 +98,17 @@ export async function POST(request: NextRequest) {
     
     if (entry) {
       // アローリストに登録されている
-      const effectiveMaxMint = localMaxPerWallet !== undefined 
-        ? localMaxPerWallet 
-        : entry.maxMintAmount;
+      // CSVのmaxMintAmountのみを使用（シンプル化）
+      const effectiveMaxMint = entry.maxMintAmount || 1; // CSVの値、未設定なら1
       
       return NextResponse.json({
         address,
         isAllowlisted: true,
         maxMintAmount: effectiveMaxMint,
-        maxPerWallet: effectiveMaxMint,
-        localMaxPerWallet: localMaxPerWallet,
+        csvMaxMintAmount: entry.maxMintAmount,
         userMinted: 0, // TODO: 実際のミント数を追跡する場合は実装が必要
         source: "csv",
-        tokenInfo: tokenInfo ? {
-          price: tokenInfo.thirdweb.price,
-          currency: tokenInfo.thirdweb.currency,
-          currencySymbol: tokenInfo.thirdweb.currencySymbol || 'POL'
-        } : null
+        tokenInfo: tokenInfo
       }, {
         headers: {
           'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'
@@ -127,20 +116,15 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // アローリストに登録されていない
+    // アローリストに登録されていない = ミント不可
     return NextResponse.json({
       address,
       isAllowlisted: false,
-      maxMintAmount: 0,
-      maxPerWallet: 0,
-      localMaxPerWallet: localMaxPerWallet,
+      maxMintAmount: 0, // ミント不可
+      csvMaxMintAmount: 0,
       userMinted: 0,
       source: "csv",
-      tokenInfo: tokenInfo ? {
-        price: tokenInfo.thirdweb.price,
-        currency: tokenInfo.thirdweb.currency,
-        currencySymbol: tokenInfo.thirdweb.currencySymbol || 'POL'
-      } : null
+      tokenInfo: tokenInfo
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10'

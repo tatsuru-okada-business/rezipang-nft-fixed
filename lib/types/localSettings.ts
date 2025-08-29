@@ -34,6 +34,7 @@ export interface MergedTokenConfig {
   image: string;
   description: string;
   currentPrice: string;
+  price?: string;
   currency: string;
   merkleRoot?: string;
   claimConditionActive: boolean;

@@ -1,0 +1,146 @@
+{
+  "defaultTokenId": 4,
+  "lastSync": "2025-08-28T22:52:25.711Z",
+  "tokens": {
+    "0": {
+      "displayEnabled": true,
+      "displayOrder": 0,
+      "salesPeriodEnabled": false,
+      "isUnlimited": false,
+      "totalMinted": 0
+    },
+    "1": {
+      "displayEnabled": true,
+      "displayOrder": 1,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "2": {
+      "displayEnabled": true,
+      "displayOrder": 2,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "3": {
+      "displayEnabled": true,
+      "displayOrder": 3,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "4": {
+      "displayEnabled": true,
+      "displayOrder": 4,
+      "salesPeriodEnabled": true,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "5": {
+      "displayEnabled": true,
+      "displayOrder": 5,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "6": {
+      "displayEnabled": true,
+      "displayOrder": 6,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "7": {
+      "displayEnabled": true,
+      "displayOrder": 7,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "8": {
+      "displayEnabled": true,
+      "displayOrder": 8,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "9": {
+      "displayEnabled": true,
+      "displayOrder": 9,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "10": {
+      "displayEnabled": true,
+      "displayOrder": 10,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "11": {
+      "displayEnabled": true,
+      "displayOrder": 11,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "12": {
+      "displayEnabled": true,
+      "displayOrder": 12,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "13": {
+      "displayEnabled": true,
+      "displayOrder": 13,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "14": {
+      "displayEnabled": true,
+      "displayOrder": 14,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "15": {
+      "displayEnabled": true,
+      "displayOrder": 15,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "16": {
+      "displayEnabled": true,
+      "displayOrder": 16,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "17": {
+      "displayEnabled": true,
+      "displayOrder": 17,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "18": {
+      "displayEnabled": true,
+      "displayOrder": 18,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    },
+    "19": {
+      "displayEnabled": true,
+      "displayOrder": 19,
+      "salesPeriodEnabled": false,
+      "isUnlimited": true,
+      "totalMinted": 0
+    }
+  }
+}
